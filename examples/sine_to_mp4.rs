@@ -163,6 +163,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 duration: FRAMES_PER_PACKET,
                 data_offset,
                 data_size: frame.data.len(),
+                composition_time_offset: None,
             };
             muxer.append_sample(&sample)?;
             data_offset += frame.data.len() as u64;
@@ -196,6 +197,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             duration: FRAMES_PER_PACKET,
             data_offset,
             data_size: frame.data.len(),
+            composition_time_offset: None,
         };
         muxer.append_sample(&sample)?;
         data_offset += frame.data.len() as u64;

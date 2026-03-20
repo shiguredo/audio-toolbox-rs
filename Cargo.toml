@@ -20,4 +20,4 @@ include = ["/src/**", "/build.rs", "/README.md", "/LICENSE"]
 bindgen = "0.72.0"
 
 [dev-dependencies]
-shiguredo_mp4 = "2026.2.0-canary.3"
+shiguredo_mp4 = "2026.2.0"
