@@ -11,6 +11,12 @@
 
 ## develop
 
+- [ADD] コーデック情報取得 API `supported_codecs()` を追加する
+  - `AudioCodecType`, `AudioCodecInfo`, `AudioDecodingInfo`, `AudioEncodingInfo` 型を追加する
+  - デコード判定に `AudioFormatGetPropertyInfo(kAudioFormatProperty_Decoders)` を使用する
+  - エンコード判定に `AudioFormatGetPropertyInfo(kAudioFormatProperty_Encoders)` を使用する
+  - ビットレート制御モード取得に `AudioConverter` のプロパティ照会を使用する
+  - @voluntas
 - [CHANGE] `Decoder::next_decoded_data()` を `Decoder::next_frame()` にリネームする
   - @voluntas
 - [CHANGE] `Encoder::encode()` の戻り値を `Result<(), Error>` に変更する

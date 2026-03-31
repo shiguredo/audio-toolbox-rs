@@ -17,7 +17,10 @@ compile_error!("this crate only supports macOS");
 
 use std::{collections::VecDeque, ffi::c_void, mem::MaybeUninit};
 
+mod codec_info;
 mod sys;
+
+pub use codec_info::*;
 
 /// Audio Toolbox API のエラー
 ///
@@ -969,5 +972,39 @@ mod tests {
             input_channels: 2,
         });
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_supported_codecs() {
+        let codecs = supported_codecs();
+
+        // 9 種類のコーデックが返る
+        assert_eq!(codecs.len(), 9);
+
+        // AAC-LC はエンコード・デコード両方サポートされている
+        let aac_lc = codecs
+            .iter()
+            .find(|c| c.codec == AudioCodecType::AacLc)
+            .unwrap();
+        assert!(aac_lc.decoding.supported);
+        assert!(aac_lc.encoding.supported);
+        // AAC-LC はビットレート制御モードが少なくとも 1 つある
+        assert!(!aac_lc.encoding.bitrate_control_modes.is_empty());
+
+        // MP3 はデコードのみサポートされている
+        let mp3 = codecs
+            .iter()
+            .find(|c| c.codec == AudioCodecType::Mp3)
+            .unwrap();
+        assert!(mp3.decoding.supported);
+        assert!(!mp3.encoding.supported);
+
+        // ALAC はエンコード・デコード両方サポートされている
+        let alac = codecs
+            .iter()
+            .find(|c| c.codec == AudioCodecType::Alac)
+            .unwrap();
+        assert!(alac.decoding.supported);
+        assert!(alac.encoding.supported);
     }
 }
