@@ -967,26 +967,6 @@ mod tests {
     }
 
     #[test]
-    fn decode_rejects_second_call_before_next_frame() {
-        let mut decoder = Decoder::new(DecoderConfig {
-            codec: DecoderCodec::AacLc,
-            input_sample_rate: TEST_SAMPLE_RATE,
-            input_channels: TEST_CHANNELS,
-        })
-        .expect("create decoder error");
-
-        decoder.decode(&[0u8; 8]).expect("first decode");
-        let err = decoder
-            .decode(&[0u8; 8])
-            .expect_err("second decode must fail");
-        let msg = err.to_string();
-        assert!(
-            msg.contains("previous packet not consumed") && msg.contains("status=-50"),
-            "unexpected error: {msg}"
-        );
-    }
-
-    #[test]
     fn init_decoder_mp3() {
         let result = Decoder::new(DecoderConfig {
             codec: DecoderCodec::Mp3,

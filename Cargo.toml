@@ -12,7 +12,7 @@ keywords = ["audio", "aac", "encoder", "decoder", "macos"]
 categories = ["multimedia::audio", "os::macos-apis"]
 readme = "README.md"
 build = "build.rs"
-include = ["/src/**", "/build.rs", "/README.md", "/LICENSE"]
+include = ["/src/**", "/tests/**", "/build.rs", "/README.md", "/LICENSE"]
 
 [dependencies]
 
@@ -20,4 +20,5 @@ include = ["/src/**", "/build.rs", "/README.md", "/LICENSE"]
 bindgen = "0.72.0"
 
 [dev-dependencies]
+proptest = "1.9.0"
 shiguredo_mp4 = "2026.2.0-canary.3"
