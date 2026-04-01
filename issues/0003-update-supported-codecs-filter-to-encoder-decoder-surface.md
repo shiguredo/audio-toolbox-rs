@@ -13,6 +13,8 @@ Model: Claude Opus 4.5
 
 ## 現状（事実）
 
+※以下は **issue 起票時点** の記録。実装後は `codec_types_for_supported_codecs` を参照すること。
+
 - `supported_codecs()` は `AudioCodecType::all()` の **9 種**を順に `probe_decoding` / `probe_encoding` する。
 - `EncoderCodec` は **AAC-LC のみ**。`DecoderCodec` は **AAC-LC / MP3 / Opus**。
 - 上記 9 種と `EncoderCodec` / `DecoderCodec` の対応は **一致しない**（例: FLAC / ALAC は照会されるが `DecoderCodec` に無い）。
@@ -38,12 +40,20 @@ Model: Claude Opus 4.5
 
 ## 完了条件
 
-- [ ] `supported_codecs()` の照会対象が `AacLc` / `Mp3` / `Opus` のみになっている。
-- [ ] rustdoc（および必要なら README）が仕様と一致している。
-- [ ] 関連テストが更新され、`cargo test` が通る。
-- [ ] `CHANGES.md` の `develop` に **後方互換のない変更**としてエントリがある（返却ベクタの長さ・内容が変わるため）。
+- [x] `supported_codecs()` の照会対象が `AacLc` / `Mp3` / `Opus` のみになっている。
+- [x] rustdoc（および必要なら README）が仕様と一致している。
+- [x] 関連テストが更新され、`cargo test` が通る。
+- [x] `CHANGES.md` の `develop` に反映されている（未リリースのため **[ADD] に照会範囲を統合**し、別立ての [CHANGE] は不要とした）。
 
 ## スコープ外
 
 - **`AudioCodecType` のバリアント削除**や **enum の縮小**（上記「列挙子について」参照）。
 - **FLAC 等を `Decoder` で新規サポートする**実装（ExtAudioFile 等が要る可能性があるもの）は含めない。必要なら **別 issue** とする。
+
+## 解決方法
+
+- `src/codec_info.rs`: `AudioCodecType::codec_types_for_supported_codecs()` を追加し、`AacLc` / `Mp3` / `Opus` のみを `probe_decoding` / `probe_encoding` する。従来の `all()` は削除。
+- `supported_codecs` の rustdoc を、返却が `EncoderCodec` / `DecoderCodec` に対応する種別に限定される旨に更新。
+- `src/lib.rs` の単体テスト、`tests/test_codec_info.rs` を更新（返却件数 3、ALAC 検証の削除、Opus はデコード可否中心）。
+- `CHANGES.md`: [ADD] `supported_codecs()` のエントリに照会範囲の説明を **一本化**（リリース前のため [CHANGE] は冗長と判断）。
+- 実装ブランチ: `feature/filter-supported-codecs-to-encoder-decoder`。**`develop` へマージ後**に本ファイルを `issues/closed/` へ `git mv` してクローズ扱いとする。
