@@ -107,13 +107,18 @@ let mut decoder = Decoder::new(DecoderConfig {
     input_channels: 2,
 })?;
 
-// 圧縮データを入力
-decoder.decode(&encoded_data)?;
+// 1 パケットずつ decode する（前のパケットを next_frame で消費するまで再度 decode しない）
+// `packets` は各パケットの圧縮バイト列のイテラブル（例: `Vec<Vec<u8>>`）
+for packet in packets {
+    decoder.decode(&packet)?;
+    while let Some(pcm) = decoder.next_frame()? {
+        println!("decoded samples: {}", pcm.len() / 2);
+    }
+}
 decoder.finish()?;
 
-// デコード結果を取得 (i16, ステレオインターリーブ)
 while let Some(pcm) = decoder.next_frame()? {
-    println!("decoded samples: {}", pcm.len() / 2);
+    println!("decoded samples (flush): {}", pcm.len() / 2);
 }
 ```
 

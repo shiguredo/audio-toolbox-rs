@@ -46,6 +46,9 @@
   - @voluntas
 - [ADD] AAC / MP3 / Opus デコーダーを追加する
   - @sile
+- [FIX] `Decoder::decode` が `next_frame` より前に複数回呼ばれたとき圧縮データを連結してしまう不具合を修正する
+  - 未消費のパケットがある状態で再度 `decode` した場合はエラーを返す
+  - @voluntas
 
 ### misc
 

@@ -1,6 +1,7 @@
 # Decoder::decode が複数回呼ばれると圧縮データが連結され誤デコードされる
 
 Created: 2026-04-01  
+Completed: 2026-04-01  
 Model: Claude Opus 4.5
 
 ## なぜこの対応が必要か
@@ -45,3 +46,12 @@ video-toolbox-rs の `Decoder::decode` は 1 回の呼び出しで 1 単位の�
 ## 参考（該当コード）
 
 - `src/lib.rs`: `Decoder::decode`、`Decoder::callback`（`encoded_buf` の扱い）
+
+## 解決方法
+
+- `Decoder::decode` で、`encoded_buf` が空でないときに再度 `decode` された場合は `paramErr`（`-50`）相当の `Error` を返すようにした（期待する動作 2）。
+- `Decoder` の rustdoc、`encoded_buf` フィールドの説明、デコーダーコールバックのコメントを、1 パケット前提に合わせて修正した。
+- `decode_aac_silent` を、エンコード出力をパケットごとに `decode` → `next_frame` する形に変更した。
+- `decode_rejects_second_call_before_next_frame` を追加した。
+- `README.md` のデコード例を複数パケットのループに合わせた。
+- `CHANGES.md` に [FIX] を追記した。

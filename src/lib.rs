@@ -617,15 +617,17 @@ pub struct DecoderConfig {
 /// # 使用フロー
 ///
 /// 1. [`Decoder::new()`] でインスタンスを生成する
-/// 2. [`Decoder::decode()`] で圧縮データを入力する（1 パケットずつ）
-/// 3. [`Decoder::next_frame()`] でデコード済み PCM データを取り出す
-/// 4. 全データの入力が完了したら [`Decoder::finish()`] を呼び出す
-/// 5. 残りのフレームを [`Decoder::next_frame()`] で取り出す
+/// 2. [`Decoder::decode()`] で **1 パケット分**の圧縮データを入力する（1 回につき 1 パケット。前のパケットを
+///    [`Decoder::next_frame()`] で消費するまで、再度 `decode` してはならない）
+/// 3. [`Decoder::next_frame()`] でデコード済み PCM を取り出す（`Ok(None)` になるまで繰り返す）
+/// 4. 複数パケットがある場合は 2〜3 を繰り返す
+/// 5. 全データの入力が完了したら [`Decoder::finish()`] を呼び出す
+/// 6. 残りの PCM を [`Decoder::next_frame()`] で取り出す
 #[derive(Debug)]
 pub struct Decoder {
     /// AudioConverter のインスタンス（AudioConverterRef）
     converter: sys::AudioConverterRef,
-    /// まだデコードされていない圧縮データのバッファ
+    /// 次の `next_frame` までに渡す未処理パケット（高々 1 パケット分）
     encoded_buf: Vec<u8>,
     /// finish() が呼ばれたかどうか
     eos: bool,
@@ -718,7 +720,16 @@ impl Decoder {
     ///
     /// 1 回の呼び出しで 1 パケット分のデータを渡す。
     /// 実際のデコード処理は [`Decoder::next_frame()`] 呼び出し時に行われる。
+    ///
+    /// 前回の `decode` で入力したパケットが [`Decoder::next_frame()`] により消費されるまで、
+    /// 再度 `decode` すると [`Error`] を返す（連結による誤デコードを防ぐ）。
     pub fn decode(&mut self, encoded: &[u8]) -> Result<(), Error> {
+        if !self.encoded_buf.is_empty() {
+            return Err(Error {
+                status: -50, // paramErr
+                function: "Decoder::decode(previous packet not consumed)",
+            });
+        }
         self.encoded_buf.extend_from_slice(encoded);
         Ok(())
     }
@@ -815,10 +826,7 @@ impl Decoder {
                 return K_NO_MORE_INPUT;
             }
 
-            // 一度に 1 パケットのみ提供する
-            //
-            // encoded_buf には 1 パケット分のデータが格納されている想定。
-            // 複数パケットが蓄積されている場合でも、1 パケットずつ処理する。
+            // 入力は 1 パケット分のみ（decode が連結を許さないため encoded_buf は 1 パケット相当）
             *io_number_data_packets = requested_packets.min(1);
 
             let io_data = &mut *io_data;
@@ -926,24 +934,28 @@ mod tests {
         })
         .expect("create decoder error");
 
-        // 無音のオーディオをエンコードする
-        let mut acc_encoded_data = Vec::new();
+        // 無音のオーディオをエンコードする（パケット単位でリスト化する）
+        let mut packets: Vec<Vec<u8>> = Vec::new();
         encoder
             .encode(&[0; 1024 * TEST_CHANNELS as usize])
             .expect("encode error");
         while let Some(encoded) = encoder.next_frame() {
-            acc_encoded_data.extend(encoded.data);
+            packets.push(encoded.data);
         }
         encoder.finish().expect("finish error");
         while let Some(encoded) = encoder.next_frame() {
-            acc_encoded_data.extend(encoded.data);
+            packets.push(encoded.data);
         }
 
-        // エンコードされたデータをデコードする
-        decoder.decode(&acc_encoded_data).expect("decode error");
-        decoder.finish().expect("finish error");
-
+        // 1 パケットずつ decode → next_frame（連結して 1 回の decode に渡さない）
         let mut total_decoded = Vec::new();
+        for packet in packets {
+            decoder.decode(&packet).expect("decode error");
+            while let Some(data) = decoder.next_frame().expect("decode error") {
+                total_decoded.extend(data);
+            }
+        }
+        decoder.finish().expect("finish error");
         while let Some(data) = decoder.next_frame().expect("decode error") {
             total_decoded.extend(data);
         }
@@ -952,6 +964,26 @@ mod tests {
         // 出力にはエンコーダーのプライミングサンプルが含まれるため、入力の 1024 フレーム以上になりうる
         assert!(total_decoded.len() >= 1024 * TEST_CHANNELS as usize);
         assert!(total_decoded.iter().all(|v| *v == 0));
+    }
+
+    #[test]
+    fn decode_rejects_second_call_before_next_frame() {
+        let mut decoder = Decoder::new(DecoderConfig {
+            codec: DecoderCodec::AacLc,
+            input_sample_rate: TEST_SAMPLE_RATE,
+            input_channels: TEST_CHANNELS,
+        })
+        .expect("create decoder error");
+
+        decoder.decode(&[0u8; 8]).expect("first decode");
+        let err = decoder
+            .decode(&[0u8; 8])
+            .expect_err("second decode must fail");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("previous packet not consumed") && msg.contains("status=-50"),
+            "unexpected error: {msg}"
+        );
     }
 
     #[test]
