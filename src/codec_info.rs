@@ -31,8 +31,10 @@ pub enum AudioCodecType {
 }
 
 impl AudioCodecType {
-    /// 列挙に含まれるすべてのコーデック種別を返す（順序固定）
-    pub fn all() -> &'static [Self] {
+    /// `supported_codecs` が照会するコーデック種別の一覧（順序固定）
+    ///
+    /// 公開 API は `supported_codecs` に集約するため、この一覧はクレート内部のみで使用する。
+    fn all() -> &'static [Self] {
         &[
             Self::AacLc,
             Self::AacHe,

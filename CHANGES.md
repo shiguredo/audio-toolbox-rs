@@ -11,8 +11,6 @@
 
 ## develop
 
-- [UPDATE] `AudioCodecType::all()` を公開する
-  - @voluntas
 - [ADD] コーデック情報取得 API `supported_codecs()` を追加する
   - `AudioCodecType`, `AudioCodecInfo`, `AudioDecodingInfo`, `AudioEncodingInfo` 型を追加する
   - デコード判定に `AudioFormatGetPropertyInfo(kAudioFormatProperty_Decoders)` を使用する
@@ -54,6 +52,8 @@
 
 ### misc
 
+- [UPDATE] `AudioCodecType::all` を非公開とし、コーデック種別の列挙は `supported_codecs` の利用に集約する
+  - @voluntas
 - [UPDATE] `tests/test_codec_info.rs` / `tests/test_encoder.rs` を追加し、`tests/test_decoder.rs` のカバレッジを拡張する
   - `tests/include/helpers.rs` を共有ヘルパとして追加する
   - @voluntas

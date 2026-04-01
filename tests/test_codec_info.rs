@@ -3,15 +3,17 @@
 use shiguredo_audio_toolbox::{AudioCodecType, supported_codecs};
 
 #[test]
-fn supported_codecs_contains_each_codec_type() {
+fn supported_codecs_has_expected_length_and_unique_codec_entries() {
     let codecs = supported_codecs();
-    assert_eq!(codecs.len(), AudioCodecType::all().len());
-
-    for expected in AudioCodecType::all() {
-        assert!(
-            codecs.iter().any(|c| c.codec == *expected),
-            "supported_codecs missing {expected:?}"
-        );
+    // `codec_info` が照会する種別数（`AudioCodecType` にバリアントを増やしたら更新する）
+    assert_eq!(codecs.len(), 9);
+    for i in 0..codecs.len() {
+        for j in (i + 1)..codecs.len() {
+            assert_ne!(
+                codecs[i].codec, codecs[j].codec,
+                "supported_codecs must not contain duplicate AudioCodecType entries"
+            );
+        }
     }
 }
 
