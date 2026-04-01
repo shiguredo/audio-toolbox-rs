@@ -23,9 +23,15 @@ Model: Claude Opus 4.5
 - 具体的には、照会対象の `AudioCodecType` を **`AacLc` / `Mp3` / `Opus`** に限定する（順序は既存の `all()` と整合しやすい順でよい）。
 - **HE-AAC 系・FLAC・ALAC 等は本 issue のスコープでは照会しない**（将来このクレートで `Decoder` 等に追加した時点で、照会対象の拡張を検討する）。
 
+## `AudioCodecType` 列挙子について（本 issue でやらないこと）
+
+- **`AudioCodecType` のバリアント（HE-AAC 系・FLAC・ALAC 等）は削除しない。** 本 issue が変えるのは **`supported_codecs()` が `probe_*` する対象の集合**だけである。
+- 列挙子を残す理由の例: **後方互換**、将来の照会拡張や別 API での利用余地、`format_id` 等の既存 `match` との整合。
+- **enum の縮小**（不要なバリアントの削除）は **公開 API の破壊的変更**になりうるため、必要なら **別 issue** で検討する（本 issue の完了条件に含めない）。
+
 ## 実装方針（案）
 
-- `AudioCodecType` 内部の一覧（現 `all()`）を、**「照会対象」専用のスライス**に差し替えるか、名前を `types_aligned_with_encoder_and_decoder()` 等にし、**`supported_codecs` からだけ参照**する。
+- `AudioCodecType` 内部の一覧（現 `all()`）を、**「照会対象」専用のスライス**に差し替えるか、名前を `types_aligned_with_encoder_and_decoder()` 等にし、**`supported_codecs` からだけ参照**する（**enum 定義自体は触らない**）。
 - **照会前にフィルターする**（9 種すべてを probe してから捨てるのではなく、対象種別だけ `probe_*` する）。
 - **公開ドキュメント**（`supported_codecs` の rustdoc、必要なら README）を、「**本クレートの `Encoder` / `Decoder` が扱うコーデックについて** OS 上の可否を返す」旨に更新する。
 - **テスト**は、返却件数・内容が上記集合と一致することを前提に更新する（例: 件数 **3**、ALAC 前提の検証は削除）。`encoding.supported` は OS 依存になりうるため、**厳密に固定しすぎない**アサーションに整理する（既存の AAC-LC / MP3 のパターンに合わせる）。
@@ -39,4 +45,5 @@ Model: Claude Opus 4.5
 
 ## スコープ外
 
+- **`AudioCodecType` のバリアント削除**や **enum の縮小**（上記「列挙子について」参照）。
 - **FLAC 等を `Decoder` で新規サポートする**実装（ExtAudioFile 等が要る可能性があるもの）は含めない。必要なら **別 issue** とする。
