@@ -57,6 +57,9 @@
 
 ### misc
 
+- [UPDATE] docs.rs / Linux CI 向けに `bindings_docs_stub.rs` を追加し、`DOCS_RS` 時のスタブを bindgen 出力と整合する型・定数・ `extern "C"` 宣言で揃える
+  - `build.rs` に `cargo::rerun-if-env-changed=DOCS_RS` を追加し、`DOCS_RS` の切り替えで bindgen とスタブが入れ替わるようにする
+  - @voluntas
 - [UPDATE] `tests/test_codec_info.rs` / `tests/test_encoder.rs` を追加し、`tests/test_decoder.rs` のカバレッジを拡張する
   - `tests/include/helpers.rs` を共有ヘルパとして追加する
   - @voluntas
