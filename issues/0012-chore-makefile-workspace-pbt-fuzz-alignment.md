@@ -13,6 +13,7 @@ Model: Claude Opus 4.5
 
 - **いずれか**: ワークスペースに `pbt` クレートと fuzz ターゲットを追加する、**または** `Makefile` と README を **現状の構成に合わせて修正**する。
 - `make pbt` / `make fuzzing-list` が **意図どおり動く**こと（環境要件は README に明記）。
+- `tests/test_decoder.rs` 等の **cargo-fuzz に言及するコメント**と、実際の構成が **矛盾しない**こと。
 
 ## 参考
 

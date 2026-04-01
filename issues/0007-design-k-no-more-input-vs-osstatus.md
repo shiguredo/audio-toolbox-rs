@@ -5,7 +5,9 @@ Model: Claude Opus 4.5
 
 ## なぜこの対応が必要か
 
-入力不足を表すために **`K_NO_MORE_INPUT = 12345`** を `AudioConverterFillComplexBuffer` の戻り値として使い、`encode_impl` / `decode_impl` で **`status == K_NO_MORE_INPUT`** と分岐している。この値が **将来・環境により実在の `OSStatus` と一致**すると、成功・失敗の解釈が崩れる。
+入力不足を表すために **`K_NO_MORE_INPUT = 12345`** を `AudioConverterFillComplexBuffer` のコールバックから返し、`encode_impl` / `decode_impl` では **`AudioConverterFillComplexBuffer` の戻り値 `status`** に対して **`status == K_NO_MORE_INPUT`** と分岐している。この値が **将来・環境により実在の `OSStatus` と一致**すると、成功・失敗の解釈が崩れる。
+
+**補足:** コールバックが返す `i32` は、**外側の `AudioConverterFillComplexBuffer` の戻り値として伝播**する想定で実装されている。調査・設計変更時は **「コールバック戻り値 = 外側に見える `status`」**の関係を前提に、衝突回避の値選定または二段判定を行う。
 
 コードコメントでも「フレームワーク側と衝突しない値」の根拠が文献で固定されていない旨がある。**設計として衝突不能に近づける**か、**ステータスとユーザー定義の不足シグナルを分離**する必要がある。
 

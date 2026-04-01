@@ -7,6 +7,8 @@ Model: Claude Opus 4.5
 
 `MaybeUninit::<T>::zeroed().assume_init()` は、**型 `T` が全ビット 0 を合法状態として許す**場合に限り安全とされる。bindgen 生成型と **Apple ヘッダの実際の定義**の差により、**将来の SDK / bindgen 更新**でリスクが変わりうる。
 
+**補足:** `AudioBufferList` の `assume_init` は **`Encoder::new` / `Decoder::new` だけでなく**、`encode_impl` / `decode_impl` でも **呼び出しのたびに**行われている。置き換え時は **全箇所**を同方針で扱う。
+
 **フィールドを明示的に代入してから `assume_init`** するパターンや、**スコープ付き `MaybeUninit`** に寄せることで、レビュー可能性と堅牢性を上げたい。
 
 ## 受け入れ条件の目安
