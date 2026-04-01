@@ -1,8 +1,6 @@
 //! コーデック情報の照会
 
-use std::mem::MaybeUninit;
-
-use crate::{BitRateControlMode, sys};
+use crate::{BitRateControlMode, audio_stream_basic_description_zeroed, sys};
 
 /// オーディオコーデック種別
 ///
@@ -249,10 +247,8 @@ fn create_probe_converter(codec: AudioCodecType) -> Option<sys::AudioConverterRe
     let bytes_per_frame = channels * size_of::<i16>() as u32;
 
     unsafe {
-        let mut input_format =
-            MaybeUninit::<sys::AudioStreamBasicDescription>::zeroed().assume_init();
-        let mut output_format =
-            MaybeUninit::<sys::AudioStreamBasicDescription>::zeroed().assume_init();
+        let mut input_format = audio_stream_basic_description_zeroed();
+        let mut output_format = audio_stream_basic_description_zeroed();
 
         // 入力: リニア PCM (i16, インターリーブ)
         input_format.mSampleRate = sample_rate;

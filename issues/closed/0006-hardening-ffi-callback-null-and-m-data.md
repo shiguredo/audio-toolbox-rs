@@ -1,6 +1,7 @@
 # AudioConverter コールバックで null ポインタと無効な `mData` を検査する
 
 Created: 2026-04-01
+Completed: 2026-04-01
 Model: Claude Opus 4.5
 
 **スコープ:** 本ブランチのミッションは **パニック・セグメンテーションフォルト（および FFI による未定義動作）** の防止に限定する。
@@ -18,6 +19,15 @@ Model: Claude Opus 4.5
 - `num_samples > 0` かつ `mData == null` のとき **`from_raw_parts_mut` を呼ばない**。
 - ゼロ長スライス時の **`mData` の要件**は Rust のポインタ規則に合わせる（実装時に公式ドキュメントと照合）。
 
+## ミッション適合性の確認
+
+- **適合する。** 根拠: **null 逆参照**・**無効ポインタからの `from_raw_parts_mut`** は **UB** で、実害として **セグフォ** になりうる。本ブランチの対象と一致する。
+
 ## 参考（該当コード）
 
 - `src/lib.rs`: `Encoder::callback`、`Decoder::callback`
+
+## 解決方法
+
+- `Encoder::callback` / `Decoder::callback` の先頭で `in_user_data` / `io_number_data_packets` / `io_data` が null のとき `kAudio_ParamError` を返すようにした。
+- エンコーダー側で `num_samples > 0` かつ `mData == null` のとき `from_raw_parts_mut` を呼ばないようにした。

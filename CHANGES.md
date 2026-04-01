@@ -18,16 +18,6 @@
   - ビットレート制御モード取得に `AudioConverter` のプロパティ照会を使用する
   - 照会対象は `EncoderCodec` / `DecoderCodec` に対応する `AudioCodecType` のみとし、`Encoder` / `Decoder` の表面積と返却一覧の意味を揃える（HE-AAC / FLAC / ALAC 等の列挙子は型として残し照会からは除外する）
   - @voluntas
-- [CHANGE] `Decoder::next_decoded_data()` を `Decoder::next_frame()` にリネームする
-  - @voluntas
-- [CHANGE] `Encoder::encode()` の戻り値を `Result<(), Error>` に変更する
-  - エンコード結果は `Encoder::next_frame()` で取得する
-  - @voluntas
-- [CHANGE] `Encoder::finish()` の戻り値を `Result<(), Error>` に変更する
-  - 残りのエンコード結果は `Encoder::next_frame()` で取得する
-  - @voluntas
-- [CHANGE] `Encoder::new()` の引数を `EncoderConfig` に変更する
-  - @voluntas
 - [ADD] `BitRateControlMode` enum を追加する
   - @voluntas
 - [ADD] `CodecQuality` enum を追加する
@@ -43,12 +33,26 @@
   - @voluntas
 - [ADD] `DecoderConfig` 構造体を追加する
   - @voluntas
-- [CHANGE] `Decoder::new()` の引数を `DecoderConfig` に変更する
-  - @voluntas
 - [ADD] AAC / MP3 / Opus デコーダーを追加する
   - @sile
+- [CHANGE] `Decoder::next_decoded_data()` を `Decoder::next_frame()` にリネームする
+  - @voluntas
+- [CHANGE] `Encoder::encode()` の戻り値を `Result<(), Error>` に変更する
+  - エンコード結果は `Encoder::next_frame()` で取得する
+  - @voluntas
+- [CHANGE] `Encoder::finish()` の戻り値を `Result<(), Error>` に変更する
+  - 残りのエンコード結果は `Encoder::next_frame()` で取得する
+  - @voluntas
+- [CHANGE] `Encoder::new()` の引数を `EncoderConfig` に変更する
+  - @voluntas
+- [CHANGE] `Decoder::new()` の引数を `DecoderConfig` に変更する
+  - @voluntas
+- [CHANGE] `Encoder` / `Decoder` の `unsafe impl Send` を削除する（Apple 公式にスレッド間移動の規範的根拠が取れないため sound と言い切れない）
+  - @voluntas
 - [FIX] `Decoder::decode` が `next_frame` より前に複数回呼ばれたとき圧縮データを連結してしまう不具合を修正する
   - 未消費のパケットがある状態で再度 `decode` した場合はエラーを返す
+  - @voluntas
+- [FIX] `mDataByteSize` の境界検証、FFI コールバックの null 検査・整数乗算の checked 化、`encoded_buf.len()` の `u32` 変換、`AudioStreamBasicDescription` / `AudioBufferList` の `assume_init` 依存除去を行う
   - @voluntas
 
 ### misc
