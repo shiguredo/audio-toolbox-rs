@@ -50,11 +50,3 @@ Model: Claude Opus 4.5
 
 - **`AudioCodecType` のバリアント削除**や **enum の縮小**（上記「列挙子について」参照）。
 - **FLAC 等を `Decoder` で新規サポートする**実装（ExtAudioFile 等が要る可能性があるもの）は含めない。必要なら **別 issue** とする。
-
-## 解決方法
-
-- `src/codec_info.rs`: `AudioCodecType::codec_types_for_supported_codecs()` を追加し、`AacLc` / `Mp3` / `Opus` のみを `probe_decoding` / `probe_encoding` する。従来の `all()` は削除。
-- `supported_codecs` の rustdoc を、返却が `EncoderCodec` / `DecoderCodec` に対応する種別に限定される旨に更新。
-- `src/lib.rs` の単体テスト、`tests/test_codec_info.rs` を更新（返却件数 3、ALAC 検証の削除、Opus はデコード可否中心）。
-- `CHANGES.md`: [ADD] `supported_codecs()` のエントリに照会範囲の説明を **一本化**（リリース前のため [CHANGE] は冗長と判断）。
-- 実装ブランチ: `feature/filter-supported-codecs-to-encoder-decoder`。
