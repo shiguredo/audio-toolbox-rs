@@ -5,8 +5,8 @@ use shiguredo_audio_toolbox::{AudioCodecType, supported_codecs};
 #[test]
 fn supported_codecs_has_expected_length_and_unique_codec_entries() {
     let codecs = supported_codecs();
-    // `codec_info` が照会する種別数（`AudioCodecType` にバリアントを増やしたら更新する）
-    assert_eq!(codecs.len(), 9);
+    // `codec_types_for_supported_codecs` と一致する（Encoder/Decoder 表面の種別数）
+    assert_eq!(codecs.len(), 3);
     for i in 0..codecs.len() {
         for j in (i + 1)..codecs.len() {
             assert_ne!(
@@ -41,12 +41,11 @@ fn supported_codecs_mp3_decode_only_typically() {
 }
 
 #[test]
-fn supported_codecs_alac_lossless_entry() {
+fn supported_codecs_opus_decoding_supported() {
     let codecs = supported_codecs();
-    let alac = codecs
+    let opus = codecs
         .iter()
-        .find(|c| c.codec == AudioCodecType::Alac)
-        .expect("ALAC entry");
-    assert!(alac.decoding.supported);
-    assert!(alac.encoding.supported);
+        .find(|c| c.codec == AudioCodecType::Opus)
+        .expect("Opus entry");
+    assert!(opus.decoding.supported);
 }
