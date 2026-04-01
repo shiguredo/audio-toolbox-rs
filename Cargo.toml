@@ -12,7 +12,7 @@ keywords = ["audio", "aac", "encoder", "decoder", "macos"]
 categories = ["multimedia::audio", "os::macos-apis"]
 readme = "README.md"
 build = "build.rs"
-include = ["/src/**", "/build.rs", "/README.md", "/LICENSE"]
+include = ["/src/**", "/tests/**", "/build.rs", "/README.md", "/LICENSE"]
 
 [dependencies]
 

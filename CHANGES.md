@@ -11,6 +11,12 @@
 
 ## develop
 
+- [ADD] コーデック情報取得 API `supported_codecs()` を追加する
+  - `AudioCodecType`, `AudioCodecInfo`, `AudioDecodingInfo`, `AudioEncodingInfo` 型を追加する
+  - デコード判定に `AudioFormatGetPropertyInfo(kAudioFormatProperty_Decoders)` を使用する
+  - エンコード判定に `AudioFormatGetPropertyInfo(kAudioFormatProperty_Encoders)` を使用する
+  - ビットレート制御モード取得に `AudioConverter` のプロパティ照会を使用する
+  - @voluntas
 - [CHANGE] `Decoder::next_decoded_data()` を `Decoder::next_frame()` にリネームする
   - @voluntas
 - [CHANGE] `Encoder::encode()` の戻り値を `Result<(), Error>` に変更する
@@ -40,9 +46,17 @@
   - @voluntas
 - [ADD] AAC / MP3 / Opus デコーダーを追加する
   - @sile
+- [FIX] `Decoder::decode` が `next_frame` より前に複数回呼ばれたとき圧縮データを連結してしまう不具合を修正する
+  - 未消費のパケットがある状態で再度 `decode` した場合はエラーを返す
+  - @voluntas
 
 ### misc
 
+- [UPDATE] `tests/test_decoder.rs` を単体テストのみとし、`proptest` を dev-dependencies から削除する
+  - @voluntas
+- [UPDATE] `DECODE_BUF_FRAMES` のコメントを RFC 6716 §2.1.4 に基づき、Opus の理論上の最大フレーム数と定数の関係を明示する（RFC 8251 は参照デコーダ等の更新であり §2.1.4 の本文は変更しない旨を注記する）
+  - `issues/0002-investigate-decoder-output-buffer-vs-codec-limits.md` に調査内容を追記する
+  - @voluntas
 - [ADD] 正弦波 PCM を AAC エンコードして MP4 に保存するサンプルを追加する
   - @voluntas
 

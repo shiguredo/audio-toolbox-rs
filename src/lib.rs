@@ -17,7 +17,10 @@ compile_error!("this crate only supports macOS");
 
 use std::{collections::VecDeque, ffi::c_void, mem::MaybeUninit};
 
+mod codec_info;
 mod sys;
+
+pub use codec_info::*;
 
 /// Audio Toolbox API のエラー
 ///
@@ -79,12 +82,12 @@ const ENCODE_BUF_SIZE: usize = 4096;
 // デコード時の出力バッファサイズ（フレーム数）
 //
 // AudioConverterFillComplexBuffer の出力バッファとして使用する。
-// 各コーデックの 1 パケットあたりのフレーム数:
-//   - AAC-LC: 1024 フレーム
-//   - MP3: 1152 フレーム
-//   - Opus: 可変（最大 5760 フレーム = 120ms @ 48kHz）
-// 全コーデックに対応するために十分なサイズを確保する。
-const DECODE_BUF_FRAMES: usize = 4096;
+// AAC-LC / MP3 の 1 入力パケットあたりのフレーム数はそれぞれ 1024 / 1152 であり、5760 で十分に覆える。
+//
+// Opus のパケットあたり最大長（最大 120 ms までの結合）は RFC 6716 §2.1.4 に規定される。
+// RFC 8251 は主に参照デコーダ実装（Appendix A）等の修正であり、同節の英語本文は変更しないと明記している。
+// 48 kHz では理論上 48000 × 0.12 = 5760 フレームまであり得るため、少なくともその値を確保する。
+const DECODE_BUF_FRAMES: usize = 5760;
 
 /// エンコーダーのコーデック種別
 ///
@@ -614,15 +617,17 @@ pub struct DecoderConfig {
 /// # 使用フロー
 ///
 /// 1. [`Decoder::new()`] でインスタンスを生成する
-/// 2. [`Decoder::decode()`] で圧縮データを入力する（1 パケットずつ）
-/// 3. [`Decoder::next_frame()`] でデコード済み PCM データを取り出す
-/// 4. 全データの入力が完了したら [`Decoder::finish()`] を呼び出す
-/// 5. 残りのフレームを [`Decoder::next_frame()`] で取り出す
+/// 2. [`Decoder::decode()`] で **1 パケット分**の圧縮データを入力する（1 回につき 1 パケット。前のパケットを
+///    [`Decoder::next_frame()`] で消費するまで、再度 `decode` してはならない）
+/// 3. [`Decoder::next_frame()`] でデコード済み PCM を取り出す（`Ok(None)` になるまで繰り返す）
+/// 4. 複数パケットがある場合は 2〜3 を繰り返す
+/// 5. 全データの入力が完了したら [`Decoder::finish()`] を呼び出す
+/// 6. 残りの PCM を [`Decoder::next_frame()`] で取り出す
 #[derive(Debug)]
 pub struct Decoder {
     /// AudioConverter のインスタンス（AudioConverterRef）
     converter: sys::AudioConverterRef,
-    /// まだデコードされていない圧縮データのバッファ
+    /// 次の `next_frame` までに渡す未処理パケット（高々 1 パケット分）
     encoded_buf: Vec<u8>,
     /// finish() が呼ばれたかどうか
     eos: bool,
@@ -715,7 +720,16 @@ impl Decoder {
     ///
     /// 1 回の呼び出しで 1 パケット分のデータを渡す。
     /// 実際のデコード処理は [`Decoder::next_frame()`] 呼び出し時に行われる。
+    ///
+    /// 前回の `decode` で入力したパケットが [`Decoder::next_frame()`] により消費されるまで、
+    /// 再度 `decode` すると [`Error`] を返す（連結による誤デコードを防ぐ）。
     pub fn decode(&mut self, encoded: &[u8]) -> Result<(), Error> {
+        if !self.encoded_buf.is_empty() {
+            return Err(Error {
+                status: -50, // paramErr
+                function: "Decoder::decode(previous packet not consumed)",
+            });
+        }
         self.encoded_buf.extend_from_slice(encoded);
         Ok(())
     }
@@ -812,10 +826,7 @@ impl Decoder {
                 return K_NO_MORE_INPUT;
             }
 
-            // 一度に 1 パケットのみ提供する
-            //
-            // encoded_buf には 1 パケット分のデータが格納されている想定。
-            // 複数パケットが蓄積されている場合でも、1 パケットずつ処理する。
+            // 入力は 1 パケット分のみ（decode が連結を許さないため encoded_buf は 1 パケット相当）
             *io_number_data_packets = requested_packets.min(1);
 
             let io_data = &mut *io_data;
@@ -923,24 +934,28 @@ mod tests {
         })
         .expect("create decoder error");
 
-        // 無音のオーディオをエンコードする
-        let mut acc_encoded_data = Vec::new();
+        // 無音のオーディオをエンコードする（パケット単位でリスト化する）
+        let mut packets: Vec<Vec<u8>> = Vec::new();
         encoder
             .encode(&[0; 1024 * TEST_CHANNELS as usize])
             .expect("encode error");
         while let Some(encoded) = encoder.next_frame() {
-            acc_encoded_data.extend(encoded.data);
+            packets.push(encoded.data);
         }
         encoder.finish().expect("finish error");
         while let Some(encoded) = encoder.next_frame() {
-            acc_encoded_data.extend(encoded.data);
+            packets.push(encoded.data);
         }
 
-        // エンコードされたデータをデコードする
-        decoder.decode(&acc_encoded_data).expect("decode error");
-        decoder.finish().expect("finish error");
-
+        // 1 パケットずつ decode → next_frame（連結して 1 回の decode に渡さない）
         let mut total_decoded = Vec::new();
+        for packet in packets {
+            decoder.decode(&packet).expect("decode error");
+            while let Some(data) = decoder.next_frame().expect("decode error") {
+                total_decoded.extend(data);
+            }
+        }
+        decoder.finish().expect("finish error");
         while let Some(data) = decoder.next_frame().expect("decode error") {
             total_decoded.extend(data);
         }
@@ -969,5 +984,39 @@ mod tests {
             input_channels: 2,
         });
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_supported_codecs() {
+        let codecs = supported_codecs();
+
+        // 9 種類のコーデックが返る
+        assert_eq!(codecs.len(), 9);
+
+        // AAC-LC はエンコード・デコード両方サポートされている
+        let aac_lc = codecs
+            .iter()
+            .find(|c| c.codec == AudioCodecType::AacLc)
+            .unwrap();
+        assert!(aac_lc.decoding.supported);
+        assert!(aac_lc.encoding.supported);
+        // AAC-LC はビットレート制御モードが少なくとも 1 つある
+        assert!(!aac_lc.encoding.bitrate_control_modes.is_empty());
+
+        // MP3 はデコードのみサポートされている
+        let mp3 = codecs
+            .iter()
+            .find(|c| c.codec == AudioCodecType::Mp3)
+            .unwrap();
+        assert!(mp3.decoding.supported);
+        assert!(!mp3.encoding.supported);
+
+        // ALAC はエンコード・デコード両方サポートされている
+        let alac = codecs
+            .iter()
+            .find(|c| c.codec == AudioCodecType::Alac)
+            .unwrap();
+        assert!(alac.decoding.supported);
+        assert!(alac.encoding.supported);
     }
 }
