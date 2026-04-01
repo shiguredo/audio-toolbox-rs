@@ -3,26 +3,20 @@
 Created: 2026-04-01
 Model: Claude Opus 4.5
 
+**スコープ:** 本ブランチのミッションは **パニック・セグメンテーションフォルト（および FFI による未定義動作）** の防止に限定する。
+
 ## なぜこの対応が必要か
 
-エンコーダー・デコーダーの `AudioConverterFillComplexBuffer` コールバックは、`io_data`、`io_number_data_packets`、`in_user_data` を **検査なしに逆参照**している。いずれかが **null** の場合、Rust の **未定義動作**となる。
+エンコーダー・デコーダーの `AudioConverterFillComplexBuffer` コールバックは、`io_data`、`io_number_data_packets`、`in_user_data` を **検査なしに逆参照**している。いずれかが **null** の場合、Rust の **未定義動作**となり、**セグフォ**につながりうる。
 
-また `from_raw_parts_mut(io_data.mBuffers[0].mData, num_samples)` は **`mData` が null** かつ **`num_samples > 0`** のとき **UB** になる。フレームワークが常に有効なポインタを渡す前提は、**防御的プログラミング**の観点では明示的チェックに置き換えたい。
-
-## 早期 return と `io_data`（エンコーダー／デコーダー）
-
-エンコーダーでは **`!eos` かつ `pcm_buf` が要求パケット数に足りない**とき **`K_NO_MORE_INPUT` を返して `io_data` を一切書かない**経路がある（`io_number_data_packets` は読んだあと return）。
-
-デコーダーでは **`encoded_buf` が空かつ `!eos`** のとき **`K_NO_MORE_INPUT` を返して `io_data` を一切書かない**経路がある。
-
-いずれも **`AudioConverter` がこの戻り値のとき `io_data` を読まない**ことが仕様上保証されているかは、**Apple ドキュメントと照合**した上で、必要なら **ゼロクリアや `mNumberBuffers` の設定**などを検討する（実装時に判断）。
+また `from_raw_parts_mut(io_data.mBuffers[0].mData, num_samples)` は **`mData` が null** かつ **`num_samples > 0`** のとき **UB** になる。
 
 ## 受け入れ条件の目安
 
 - `in_user_data == null` のとき **エラーコードを返し**、`Encoder` / `Decoder` への参照を作らない。
 - `io_number_data_packets` / `io_data` が null のとき同様（返却する `OSStatus` は Apple 慣習に合わせて調査の上決定）。
 - `num_samples > 0` かつ `mData == null` のとき **`from_raw_parts_mut` を呼ばない**。
-- ゼロ長スライス時の **`mData` の要件**は Rust のポインタ規則に合わせ、必要なら **ダミーアラインポインタ**等を検討する（実装時に公式ドキュメントと照合）。
+- ゼロ長スライス時の **`mData` の要件**は Rust のポインタ規則に合わせる（実装時に公式ドキュメントと照合）。
 
 ## 参考（該当コード）
 

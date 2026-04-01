@@ -3,6 +3,8 @@
 Created: 2026-04-01
 Model: Claude Opus 4.5
 
+**スコープ:** 本ブランチのミッションは **パニック・セグメンテーションフォルト（および FFI による未定義動作）** の防止に限定する。
+
 ## なぜこの対応が必要か
 
 `Encoder::encode_impl` は `AudioConverterFillComplexBuffer` 呼び出し後に `output_buffer_list.mBuffers[0].mDataByteSize` をそのまま `size` として `encoded_data[..size]` に用いている。`encoded_data` は **`ENCODE_BUF_SIZE`（4096）バイトのスタック配列**であり、`size` がこれを超えると **スライス境界でパニック**する。
@@ -11,13 +13,13 @@ Model: Claude Opus 4.5
 
 ## 受け入れ条件の目安
 
-- `mDataByteSize` が `ENCODE_BUF_SIZE` を超える場合、**`Result::Err`** 等で呼び出し側に伝える。**クランプして短いスライスだけ成功扱いにしない**（データ欠落・誤ったパケットを黙って返さないこと）。
+- `mDataByteSize` が `ENCODE_BUF_SIZE` を超える場合、**`Result::Err`** 等で呼び出し側に伝える。**クランプして短いスライスだけ成功扱いにしない**（誤ったパケットを返して後段で破損させないこと）。
 - 正常系では **`encoded_data[..size]` が常に境界内**になること。
 - 可能なら **macOS 上**で境界に関する **回帰テスト**または **エラーパス**の単体テストを追加する。
 
 ## 既存 issue との関係
 
-- デコード側の **`mDataByteSize` とバッファ長の整合**は `issues/0005-hardening-decode-output-m-data-byte-size.md` で扱う（本 issue は **エンコード出力のスタックバッファ**が主眼）。
+- デコード出力側は `issues/0005-hardening-decode-output-m-data-byte-size.md`。
 
 ## 参考（該当コード）
 

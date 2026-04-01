@@ -3,11 +3,13 @@
 Created: 2026-04-01
 Model: Claude Opus 4.5
 
+**スコープ:** 本ブランチのミッションは **パニック・セグメンテーションフォルト（および FFI による未定義動作）** の防止に限定する。
+
 ## なぜこの対応が必要か
 
-コールバック内で `packets as usize * channels`、`packets * channels as u32 * size_of::<i16>()`、`(this.pcm_buf.len() / channels) as u32` 等を用いている。**乗算のオーバーフロー**や **`usize` から `u32` への切り詰め**により、**条件判定や `drain` 範囲が壊れる**可能性がある（異常に大きな `io_number_data_packets` や極端なバッファ長を想定）。
+コールバック内で `packets as usize * channels`、`packets * channels as u32 * size_of::<i16>()`、`(this.pcm_buf.len() / channels) as u32` 等を用いている。**乗算のオーバーフロー**や **`usize` から `u32` への切り詰め**により、**条件判定や `drain` 範囲が壊れ**、**パニック**（例: `drain` の範囲不正）や **不正なメモリ操作**につながりうる。
 
-**補足:** `Decoder::callback` の `requested_packets.min(1)` 等は影響が小さいが、**同じく `io_number_data_packets` を逆参照**するため、**null 検査**は `issues/0006` と合わせて扱う。
+**補足:** `Decoder::callback` の `io_number_data_packets` の **null 検査**は `issues/0006` と合わせて扱う。
 
 ## 受け入れ条件の目安
 
