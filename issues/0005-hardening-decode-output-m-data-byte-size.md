@@ -7,7 +7,15 @@ Model: Claude Opus 4.5
 
 `Decoder::decode_impl` は `AudioConverterFillComplexBuffer` 成功後に `output_buffer_list.mBuffers[0].mDataByteSize` を `byte_size` とし、`size = byte_size / size_of::<i16>()` として `pcm_buf.truncate(size)` を呼ぶ。
 
-**補足（`Vec::truncate` の仕様）:** 現行 Rust の `Vec::truncate` は、**`len` が現在の `len()` より大きい場合は何もしない**（パニックしない）。したがって **`size` が事前に確保した `pcm_buf.len()` を超える**と、`truncate` は **縮めない**ままとなり、**返却 `Vec` の `.len()` が「有効な PCM サンプル数」と一致しない**可能性がある（末尾に **未使用の余剰要素**が残る）。呼び出し側が「サンプル数 = `Vec::len()`」と解釈すると **誤った長さのデータ**として扱われる。
+### 本 issue の主眼
+
+**論点は `Vec::truncate` のパニックではない。** 主眼は **`mDataByteSize`（および導出した `size`）が、確保した出力バッファや i16 境界と矛盾する異常値でないかの検証**である。
+
+### 調査結果（`Vec::truncate`）
+
+[`Vec::truncate`](https://doc.rust-lang.org/std/vec/struct.Vec.html#method.truncate) は、**`len` が現在の `len()` 以上なら何もしない**（パニックしない）。**ローカル検証:** 長さ 4 の `Vec` に対し `truncate(100)` 後も `len() == 4`。
+
+したがって **`size` が `pcm_buf.len()` を超える**と、`truncate` は **縮めない**ままとなり、**返却 `Vec` の `.len()` が「有効な PCM サンプル数」と一致しない**可能性がある（末尾に **初期化ゼロのままの余剰要素**などが残り、呼び出し側が「`len()` ＝有効サンプル数」と解釈すると **誤った長さ**になる）。
 
 また **`byte_size` が奇数**のとき、i16 境界と整合しない出力として **データ不整合**が生じうる。フレームワーク異常値に対し **防御的に検証**する必要がある。
 
@@ -25,3 +33,7 @@ Model: Claude Opus 4.5
 ## 参考（該当コード）
 
 - `src/lib.rs`: `decode_impl`、`DECODE_BUF_FRAMES`、`OUTPUT_CHANNELS`
+
+## 参考（外部）
+
+- `std::vec::Vec::truncate`: <https://doc.rust-lang.org/std/vec/struct.Vec.html#method.truncate>
