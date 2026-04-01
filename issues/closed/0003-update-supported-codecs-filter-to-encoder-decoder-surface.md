@@ -1,6 +1,7 @@
 # `supported_codecs()` の照会対象を `EncoderCodec` / `DecoderCodec` と一致させる
 
 Created: 2026-04-01
+Completed: 2026-04-01
 Model: Claude Opus 4.5
 
 ## なぜこの対応が必要か
@@ -56,4 +57,4 @@ Model: Claude Opus 4.5
 - `supported_codecs` の rustdoc を、返却が `EncoderCodec` / `DecoderCodec` に対応する種別に限定される旨に更新。
 - `src/lib.rs` の単体テスト、`tests/test_codec_info.rs` を更新（返却件数 3、ALAC 検証の削除、Opus はデコード可否中心）。
 - `CHANGES.md`: [ADD] `supported_codecs()` のエントリに照会範囲の説明を **一本化**（リリース前のため [CHANGE] は冗長と判断）。
-- 実装ブランチ: `feature/filter-supported-codecs-to-encoder-decoder`。**`develop` へマージ後**に本ファイルを `issues/closed/` へ `git mv` してクローズ扱いとする。
+- 実装ブランチ: `feature/filter-supported-codecs-to-encoder-decoder`。
