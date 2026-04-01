@@ -53,7 +53,6 @@ Model: Claude Opus 4.5
 
 ## 解決方法
 
-- `supported_codecs()` の照会ループを、`AudioCodecType::codec_types_for_supported_codecs()`（`AacLc` / `Mp3` / `Opus` のみ）に差し替えた。従来の `all()` による 9 種一括照会はやめた。
-- `supported_codecs` の rustdoc を、返却が `EncoderCodec` / `DecoderCodec` に対応する種別に限定される旨に合わせた。
-- 単体・統合テストを返却件数 3 と上記仕様に合わせて更新した。
-- `CHANGES.md` の `develop` に、照会範囲を [ADD] エントリへ統合して記載した。
+返却ベクタに **本クレートの `Encoder` / `Decoder` で選べない種別**が混ざることが、利用者の誤解の原因だった。そこで **`supported_codecs()` が AudioToolbox を照会する対象を、`EncoderCodec` / `DecoderCodec` と対応する `AudioCodecType`（`AacLc` / `Mp3` / `Opus`）に限定**し、返す一覧の意味を **「このライブラリから見た、対応コーデックの可否」**に固定した。
+
+HE-AAC / FLAC / ALAC 等は **列挙子としては残し**、**照会の対象からだけ外す**。OS 全体のコーデック登録を列挙する API ではなく、**本クレートの表面積と整合する照会**に変えた点が解消の本体である。
