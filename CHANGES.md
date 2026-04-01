@@ -54,6 +54,7 @@
 
 - [ADD] `tests/test_decoder.rs` を追加し、`Decoder::decode` の契約を PBT と単体テストで検証する
   - `proptest` を dev-dependencies に追加する
+  - PBT のケース数は `AudioConverter` の生成回数に合わせて抑える
   - @voluntas
 - [UPDATE] `DECODE_BUF_FRAMES` のコメントを RFC 6716 §2.1.4 に基づき、Opus の理論上の最大フレーム数と定数の関係を明示する（RFC 8251 は参照デコーダ等の更新であり §2.1.4 の本文は変更しない旨を注記する）
   - `issues/0002-investigate-decoder-output-buffer-vs-codec-limits.md` に調査内容を追記する
