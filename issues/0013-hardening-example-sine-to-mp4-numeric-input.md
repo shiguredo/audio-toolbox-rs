@@ -9,13 +9,14 @@ Model: Claude Opus 4.5
 
 ### 調査結果（Rust 言語仕様）
 
-The Rust Reference の **Numeric cast**（浮動小数点から整数）では次が規定されている（[Type cast expressions / Numeric cast / Casting from a float to an integer](https://doc.rust-lang.org/reference/expressions/operator-expr.html#numeric-cast)）。
+[Rust Reference（Type cast expressions / Numeric cast / 浮動小数点から整数へ）](https://doc.rust-lang.org/reference/expressions/operator-expr.html#numeric-cast) では、浮動小数点から整数への `as` について次が規定されている。
 
 - `NaN` は **0** になる。
 - 整数の最大値を超える値（`INFINITY` を含む）は **その整数型の最大値に飽和**する。
 - 整数の最小値未満（`NEG_INFINITY` を含む）は **最小値に飽和**する。
 
-**ローカル検証（rustc 1.94.1）:** `f64::NAN as i16 == 0`、`f64::INFINITY as i16 == 32767`、`f64::NEG_INFINITY as i16 == -32768`、`1e100_f64 as i16 == 32767`。
+**ローカル検証（rustc 1.94.1）:** `f64::NAN as i16 == 0`、`f64::INFINITY as i16 == 32767`、`f64::NEG_INFINITY as i16 == -32768`、`1e100_f64 as i16 == 32767`。クレートの `rust-version`（`Cargo.toml`）でも **Reference に従う**前提でよいが、必要なら **MSRV で再確認**する。
+
 
 したがって **`f64 as i16` は未定義動作ではなく**、危険度の主因は **UB ではなく**、**NaN や極端な値が黙って 0 や飽和値になり、無音やクリップした正弦になる**こと、および **`duration_secs` が極端に大きい**ときのループ・メモリ負荷である。サンプルは **お手本**として、**有限・意図した範囲の入力**を検証するのがよい。
 
@@ -30,4 +31,4 @@ The Rust Reference の **Numeric cast**（浮動小数点から整数）では�
 
 ## 参考（外部）
 
-- The Rust Reference — Numeric cast（浮動小数点 → 整数）: <https://doc.rust-lang.org/reference/expressions/operator-expr.html#numeric-cast>
+- Rust Reference（数値キャスト・浮動小数点 → 整数）: <https://doc.rust-lang.org/reference/expressions/operator-expr.html#numeric-cast>

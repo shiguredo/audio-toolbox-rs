@@ -1,4 +1,4 @@
-# エンコーダー入力の PCM フレーム整合性と `vbr_quality` 範囲を検証する
+# エンコーダー入力の PCM 整合性・`vbr_quality`・デコーダー入力長の検証
 
 Created: 2026-04-01
 Model: Claude Opus 4.5

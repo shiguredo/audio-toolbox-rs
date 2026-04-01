@@ -13,6 +13,7 @@ Model: Claude Opus 4.5
 
 ## 受け入れ条件の目安
 
+- `AudioStreamBasicDescription` と `AudioBufferList` で **初期化の置き方が異なる**場合は、型ごとに **安全な手順を設計メモまたはコメント**に残す。
 - `src/lib.rs` および `src/codec_info.rs` の該当箇所を **同方針**で更新する。
 - 振る舞いは **現状と同等**（リグレッションテストで確認）。
 

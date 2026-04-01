@@ -16,4 +16,4 @@ Model: Claude Opus 4.5
 
 ## 参考（該当コード）
 
-- `src/lib.rs`: `Encoder::callback`（`packets`、`channels`、`drain` 範囲）
+- `src/lib.rs`: `Encoder::callback`（`packets`、`channels`、`drain` 範囲）、`Decoder::callback`（`io_number_data_packets` の逆参照）

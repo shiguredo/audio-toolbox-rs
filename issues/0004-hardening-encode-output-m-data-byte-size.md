@@ -15,6 +15,10 @@ Model: Claude Opus 4.5
 - 正常系では **`encoded_data[..size]` が常に境界内**になること。
 - 可能なら **macOS 上**で境界に関する **回帰テスト**または **エラーパス**の単体テストを追加する。
 
+## 既存 issue との関係
+
+- デコード側の **`mDataByteSize` とバッファ長の整合**は `issues/0005-hardening-decode-output-m-data-byte-size.md` で扱う（本 issue は **エンコード出力のスタックバッファ**が主眼）。
+
 ## 参考（該当コード）
 
 - `src/lib.rs`: `encode_impl`、`ENCODE_BUF_SIZE`

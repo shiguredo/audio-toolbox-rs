@@ -5,7 +5,7 @@ Model: Claude Opus 4.5
 
 ## なぜこの対応が必要か
 
-ルート `Makefile` は `cargo test -p pbt` および `cargo fuzz list` を前提としているが、**単一クレートの `Cargo.toml` のみ**のワークスペースでは **`pbt` パッケージが存在しない**可能性がある。また **`fuzz/` ディレクトリ**が無い場合、`cargo fuzz` 系ターゲットは **失敗**する。
+ルート `Makefile` は `cargo test -p pbt` および `cargo fuzz list` を前提としているが、**現状のリポジトリはルートに単一クレートの `Cargo.toml` のみ**であり、**`pbt` パッケージは存在しない**。また **`fuzz/` ディレクトリ**が無い場合、`cargo fuzz` 系ターゲットは **失敗**する。
 
 利用者・CI が **ドキュメント通りにコマンドを実行できない**状態を解消する必要がある。
 

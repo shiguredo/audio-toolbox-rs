@@ -9,7 +9,7 @@ Model: Claude Opus 4.5
 
 `unsafe impl Send for Encoder/Decoder` が **sound** であるには、**`AudioConverterRef` を別スレッドへ所有権移動したあと、単一スレッドからのみ操作する**ことが、Apple API の契約上許される必要がある（**スレッド親和性**や**特定スレッド専用**といった制約がある場合、`Send` は誤りになりうる）。
 
-**rustdoc で「誤用禁止」と書くだけでは、**`unsafe impl Send` **そのものの正当性は証明されない**。本 issue の完了条件には **根拠調査・soundness の判断**を含め、ドキュメント化は **そのあと**の利用者向け説明として位置づける。
+**rustdoc で「誤用禁止」と書くだけでは `unsafe impl Send` そのものの正当性は証明されない。** 本 issue の完了条件には **根拠調査・soundness の判断**を含め、ドキュメント化は **そのあと**の利用者向け説明として位置づける。
 
 ### 調査結果（Apple 公開ドキュメント・一次）
 

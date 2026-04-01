@@ -9,9 +9,13 @@ Model: Claude Opus 4.5
 
 また `from_raw_parts_mut(io_data.mBuffers[0].mData, num_samples)` は **`mData` が null** かつ **`num_samples > 0`** のとき **UB** になる。フレームワークが常に有効なポインタを渡す前提は、**防御的プログラミング**の観点では明示的チェックに置き換えたい。
 
-## 早期 return と `io_data`（デコーダー）
+## 早期 return と `io_data`（エンコーダー／デコーダー）
 
-デコーダーでは **`encoded_buf` が空かつ `!eos`** のとき **`K_NO_MORE_INPUT` を返して `io_data` を一切書かない**経路がある。`AudioConverter` がこの戻り値で **`io_data` を読まない**ことが仕様上保証されているかは、**Apple ドキュメントと照合**した上で、必要なら **ゼロクリアや `mNumberBuffers` の設定**などを検討する（実装時に判断）。
+エンコーダーでは **`!eos` かつ `pcm_buf` が要求パケット数に足りない**とき **`K_NO_MORE_INPUT` を返して `io_data` を一切書かない**経路がある（`io_number_data_packets` は読んだあと return）。
+
+デコーダーでは **`encoded_buf` が空かつ `!eos`** のとき **`K_NO_MORE_INPUT` を返して `io_data` を一切書かない**経路がある。
+
+いずれも **`AudioConverter` がこの戻り値のとき `io_data` を読まない**ことが仕様上保証されているかは、**Apple ドキュメントと照合**した上で、必要なら **ゼロクリアや `mNumberBuffers` の設定**などを検討する（実装時に判断）。
 
 ## 受け入れ条件の目安
 
