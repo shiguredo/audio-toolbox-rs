@@ -31,21 +31,12 @@ pub enum AudioCodecType {
 }
 
 impl AudioCodecType {
-    /// `supported_codecs` が照会するコーデック種別の一覧（順序固定）
+    /// `supported_codecs` が `probe_*` する種別のみ（順序固定）
     ///
-    /// 公開 API は `supported_codecs` に集約するため、この一覧はクレート内部のみで使用する。
-    fn all() -> &'static [Self] {
-        &[
-            Self::AacLc,
-            Self::AacHe,
-            Self::AacHeV2,
-            Self::AacLd,
-            Self::AacEld,
-            Self::Mp3,
-            Self::Opus,
-            Self::Flac,
-            Self::Alac,
-        ]
+    /// `EncoderCodec` / `DecoderCodec` で表現できるコーデックに合わせ、本クレートのエンコード／デコード API と返却一覧の意味を揃える。
+    /// HE-AAC / FLAC / ALAC 等の列挙子は残すが、本関数のスライスには含めない。
+    fn codec_types_for_supported_codecs() -> &'static [Self] {
+        &[Self::AacLc, Self::Mp3, Self::Opus]
     }
 
     /// AudioStreamBasicDescription の mFormatID を返す
@@ -125,10 +116,12 @@ pub struct AudioEncodingInfo {
     pub bitrate_control_modes: Vec<BitRateControlMode>,
 }
 
-/// このバックエンドで利用可能なオーディオコーデック情報の一覧を返す
+/// 本クレートの `Encoder` / `Decoder` が扱うコーデック種別について、AudioToolbox 上のデコード／エンコード可否およびビットレート制御モードを照会した一覧を返す。
+///
+/// 返す `AudioCodecType` は `EncoderCodec` / `DecoderCodec` と対応するものに限る（HE-AAC / FLAC / ALAC 等は含めない）。
 #[cfg(target_os = "macos")]
 pub fn supported_codecs() -> Vec<AudioCodecInfo> {
-    AudioCodecType::all()
+    AudioCodecType::codec_types_for_supported_codecs()
         .iter()
         .map(|&codec| AudioCodecInfo {
             codec,

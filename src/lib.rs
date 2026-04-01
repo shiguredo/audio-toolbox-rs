@@ -990,8 +990,8 @@ mod tests {
     fn test_supported_codecs() {
         let codecs = supported_codecs();
 
-        // 9 種類のコーデックが返る
-        assert_eq!(codecs.len(), 9);
+        // `EncoderCodec` / `DecoderCodec` に対応する 3 種のみ
+        assert_eq!(codecs.len(), 3);
 
         // AAC-LC はエンコード・デコード両方サポートされている
         let aac_lc = codecs
@@ -1011,12 +1011,11 @@ mod tests {
         assert!(mp3.decoding.supported);
         assert!(!mp3.encoding.supported);
 
-        // ALAC はエンコード・デコード両方サポートされている
-        let alac = codecs
+        // Opus はデコードは可能（エンコード可否は OS により異なるためここでは検証しない）
+        let opus = codecs
             .iter()
-            .find(|c| c.codec == AudioCodecType::Alac)
+            .find(|c| c.codec == AudioCodecType::Opus)
             .unwrap();
-        assert!(alac.decoding.supported);
-        assert!(alac.encoding.supported);
+        assert!(opus.decoding.supported);
     }
 }
