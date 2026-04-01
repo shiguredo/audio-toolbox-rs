@@ -11,6 +11,8 @@
 
 ## develop
 
+- [UPDATE] `AudioCodecType::all()` を公開する
+  - @voluntas
 - [ADD] コーデック情報取得 API `supported_codecs()` を追加する
   - `AudioCodecType`, `AudioCodecInfo`, `AudioDecodingInfo`, `AudioEncodingInfo` 型を追加する
   - デコード判定に `AudioFormatGetPropertyInfo(kAudioFormatProperty_Decoders)` を使用する
@@ -52,6 +54,9 @@
 
 ### misc
 
+- [UPDATE] `tests/test_codec_info.rs` / `tests/test_encoder.rs` を追加し、`tests/test_decoder.rs` のカバレッジを拡張する
+  - `tests/include/helpers.rs` を共有ヘルパとして追加する
+  - @voluntas
 - [UPDATE] `tests/test_decoder.rs` を単体テストのみとし、`proptest` を dev-dependencies から削除する
   - @voluntas
 - [UPDATE] `DECODE_BUF_FRAMES` のコメントを RFC 6716 §2.1.4 に基づき、Opus の理論上の最大フレーム数と定数の関係を明示する（RFC 8251 は参照デコーダ等の更新であり §2.1.4 の本文は変更しない旨を注記する）
