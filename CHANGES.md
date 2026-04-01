@@ -16,6 +16,7 @@
   - デコード判定に `AudioFormatGetPropertyInfo(kAudioFormatProperty_Decoders)` を使用する
   - エンコード判定に `AudioFormatGetPropertyInfo(kAudioFormatProperty_Encoders)` を使用する
   - ビットレート制御モード取得に `AudioConverter` のプロパティ照会を使用する
+  - 照会対象は `EncoderCodec` / `DecoderCodec` に対応する `AudioCodecType` のみとし、`Encoder` / `Decoder` の表面積と返却一覧の意味を揃える（HE-AAC / FLAC / ALAC 等の列挙子は型として残し照会からは除外する）
   - @voluntas
 - [CHANGE] `Decoder::next_decoded_data()` を `Decoder::next_frame()` にリネームする
   - @voluntas
@@ -46,16 +47,12 @@
   - @voluntas
 - [ADD] AAC / MP3 / Opus デコーダーを追加する
   - @sile
-- [CHANGE] `supported_codecs()` の照会対象を `EncoderCodec` / `DecoderCodec` に対応する種別のみに限定する
-  - @voluntas
 - [FIX] `Decoder::decode` が `next_frame` より前に複数回呼ばれたとき圧縮データを連結してしまう不具合を修正する
   - 未消費のパケットがある状態で再度 `decode` した場合はエラーを返す
   - @voluntas
 
 ### misc
 
-- [UPDATE] `AudioCodecType::all` を非公開とし、コーデック種別の列挙は `supported_codecs` の利用に集約する
-  - @voluntas
 - [UPDATE] `tests/test_codec_info.rs` / `tests/test_encoder.rs` を追加し、`tests/test_decoder.rs` のカバレッジを拡張する
   - `tests/include/helpers.rs` を共有ヘルパとして追加する
   - @voluntas
