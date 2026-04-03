@@ -15,7 +15,7 @@
 #[cfg(all(not(target_os = "macos"), not(doc)))]
 compile_error!("this crate only supports macOS");
 
-use std::{collections::VecDeque, ffi::c_void, mem::MaybeUninit};
+use std::{collections::VecDeque, ffi::c_void};
 
 mod codec_info;
 mod sys;
@@ -88,6 +88,33 @@ const ENCODE_BUF_SIZE: usize = 4096;
 // RFC 8251 は主に参照デコーダ実装（Appendix A）等の修正であり、同節の英語本文は変更しないと明記している。
 // 48 kHz では理論上 48000 × 0.12 = 5760 フレームまであり得るため、少なくともその値を確保する。
 const DECODE_BUF_FRAMES: usize = 5760;
+
+/// `AudioStreamBasicDescription` を全フィールド明示のゼロで初期化する（`zeroed().assume_init()` に依存しない）。
+pub(crate) fn audio_stream_basic_description_zeroed() -> sys::AudioStreamBasicDescription {
+    sys::AudioStreamBasicDescription {
+        mSampleRate: 0.0,
+        mFormatID: 0,
+        mFormatFlags: 0,
+        mBytesPerPacket: 0,
+        mFramesPerPacket: 0,
+        mBytesPerFrame: 0,
+        mChannelsPerFrame: 0,
+        mBitsPerChannel: 0,
+        mReserved: 0,
+    }
+}
+
+/// 1 バッファ分の `AudioBufferList` を初期化する（`zeroed().assume_init()` に依存しない）。
+fn audio_buffer_list_placeholder() -> sys::AudioBufferList {
+    sys::AudioBufferList {
+        mNumberBuffers: 0,
+        mBuffers: [sys::AudioBuffer {
+            mNumberChannels: 0,
+            mDataByteSize: 0,
+            mData: std::ptr::null_mut(),
+        }; 1],
+    }
+}
 
 /// エンコーダーのコーデック種別
 ///
@@ -204,6 +231,10 @@ pub struct EncoderConfig {
 ///
 /// AudioConverter を使用して PCM 音声データを圧縮フォーマットにエンコードする。
 ///
+/// # スレッド
+///
+/// `Send` は実装しない。`AudioConverter` のスレッド間移動可否は Apple 公式に明記されていないため、`unsafe impl Send` を付けない。
+///
 /// # 使用フロー
 ///
 /// 1. [`Encoder::new()`] でインスタンスを生成する
@@ -251,11 +282,9 @@ impl Encoder {
 
         unsafe {
             // 入力フォーマット: リニア PCM (i16, インターリーブ)
-            let mut input_format =
-                MaybeUninit::<sys::AudioStreamBasicDescription>::zeroed().assume_init();
+            let mut input_format = audio_stream_basic_description_zeroed();
             // 出力フォーマット: 圧縮コーデック（コーデック種別に応じて設定）
-            let mut output_format =
-                MaybeUninit::<sys::AudioStreamBasicDescription>::zeroed().assume_init();
+            let mut output_format = audio_stream_basic_description_zeroed();
 
             input_format.mSampleRate = sample_rate;
             input_format.mFormatID = sys::kAudioFormatLinearPCM;
@@ -404,8 +433,7 @@ impl Encoder {
         let mut encoded_data = [0; ENCODE_BUF_SIZE];
         // 1 回の呼び出しで 1 パケットのみ要求する
         let mut io_packets = 1;
-        let mut output_buffer_list =
-            unsafe { MaybeUninit::<sys::AudioBufferList>::zeroed().assume_init() };
+        let mut output_buffer_list = audio_buffer_list_placeholder();
         output_buffer_list.mNumberBuffers = 1;
         output_buffer_list.mBuffers[0].mNumberChannels = self.channels as sys::UInt32;
         output_buffer_list.mBuffers[0].mData = encoded_data.as_mut_ptr().cast();
@@ -433,6 +461,12 @@ impl Encoder {
         if size == 0 {
             return Ok(None);
         }
+        if size > ENCODE_BUF_SIZE {
+            return Err(Error {
+                status: sys::kAudio_ParamError,
+                function: "Encoder::encode_impl(mDataByteSize)",
+            });
+        }
         Ok(Some(EncodedFrame {
             data: encoded_data[..size].to_vec(),
             // 消費されたサンプル数 = エンコード前のサンプル数 - エンコード後の残りサンプル数
@@ -457,35 +491,65 @@ impl Encoder {
         in_user_data: *mut c_void,
     ) -> i32 {
         unsafe {
+            let param_err = sys::kAudio_ParamError;
+            if in_user_data.is_null() || io_number_data_packets.is_null() || io_data.is_null() {
+                return param_err;
+            }
             let this: &mut Encoder = &mut *(in_user_data as *mut Encoder);
             let channels = this.channels;
             let packets = *io_number_data_packets;
 
+            let need_samples = match (packets as usize).checked_mul(channels) {
+                Some(n) => n,
+                None => return param_err,
+            };
             // 要求されたパケット数分の PCM データがバッファにあるか確認する。
             // finish() が呼ばれていない場合はデータ不足として K_NO_MORE_INPUT を返す。
             // finish() 後は残りのデータで処理を続ける。
-            if !this.eos && this.pcm_buf.len() < packets as usize * channels {
+            if !this.eos && this.pcm_buf.len() < need_samples {
                 return K_NO_MORE_INPUT;
             }
 
+            let max_packets = this.pcm_buf.len() / channels;
+            let max_packets_u32 = match u32::try_from(max_packets) {
+                Ok(v) => v,
+                Err(_) => return param_err,
+            };
             // 実際に提供可能なパケット数に調整する
-            *io_number_data_packets = packets.min((this.pcm_buf.len() / channels) as u32);
+            *io_number_data_packets = packets.min(max_packets_u32);
 
             let packets = *io_number_data_packets;
             let io_data = &mut *io_data;
+            let ch_u32 = match u32::try_from(channels) {
+                Ok(v) => v,
+                Err(_) => return param_err,
+            };
+            let bps = size_of::<i16>() as u32;
             // バイト数 = パケット数 × チャンネル数 × サンプルサイズ
-            let size = packets * channels as u32 * size_of::<i16>() as u32;
+            let size = match packets.checked_mul(ch_u32).and_then(|x| x.checked_mul(bps)) {
+                Some(s) => s,
+                None => return param_err,
+            };
             io_data.mNumberBuffers = 1;
             io_data.mBuffers[0].mNumberChannels = channels as sys::UInt32;
 
             // pcm_buf の先頭から必要なサンプル数分を AudioConverter のバッファにコピーする
-            let num_samples = (size / size_of::<i16>() as u32) as usize;
-            std::slice::from_raw_parts_mut(io_data.mBuffers[0].mData.cast(), num_samples)
-                .copy_from_slice(&this.pcm_buf[..num_samples]);
+            let num_samples = (size / bps) as usize;
+            if num_samples > 0 {
+                if io_data.mBuffers[0].mData.is_null() {
+                    return param_err;
+                }
+                std::slice::from_raw_parts_mut(io_data.mBuffers[0].mData.cast(), num_samples)
+                    .copy_from_slice(&this.pcm_buf[..num_samples]);
+            }
 
             io_data.mBuffers[0].mDataByteSize = size;
             // コピー済みのデータをバッファから削除する
-            this.pcm_buf.drain(0..packets as usize * channels);
+            let drain_end = match (packets as usize).checked_mul(channels) {
+                Some(n) if n <= this.pcm_buf.len() => n,
+                _ => return param_err,
+            };
+            this.pcm_buf.drain(0..drain_end);
         }
         sys::noErr as i32
     }
@@ -500,11 +564,8 @@ impl Drop for Encoder {
     }
 }
 
-// AudioConverter 自体はスレッドセーフではないが、
-// Encoder は &mut self を要求するため、同時アクセスは Rust の型システムで防がれる。
-// Sync は実装しない: &Encoder から &mut self メソッドは呼べないが、
-// AudioConverterRef が内部的にスレッドセーフでないため Sync を保証できない。
-unsafe impl Send for Encoder {}
+// AudioConverter / AudioConverterRef は Apple 公式にスレッド間の移動可否が明記されていない。
+// `unsafe impl Send` を sound に正当化する根拠が取れないため、`Send` は実装しない（`!Send`）。
 
 /// エンコードされた音声フレーム
 ///
@@ -614,6 +675,10 @@ pub struct DecoderConfig {
 /// AudioConverter を使用して圧縮音声データを PCM にデコードする。
 /// 出力はステレオ（2ch）16bit PCM 固定。
 ///
+/// # スレッド
+///
+/// `Send` は実装しない。`AudioConverter` のスレッド間移動可否は Apple 公式に明記されていないため、`unsafe impl Send` を付けない。
+///
 /// # 使用フロー
 ///
 /// 1. [`Decoder::new()`] でインスタンスを生成する
@@ -662,11 +727,9 @@ impl Decoder {
 
         unsafe {
             // 入力フォーマット: 圧縮コーデック
-            let mut input_format =
-                MaybeUninit::<sys::AudioStreamBasicDescription>::zeroed().assume_init();
+            let mut input_format = audio_stream_basic_description_zeroed();
             // 出力フォーマット: リニア PCM (i16, インターリーブ, ステレオ)
-            let mut output_format =
-                MaybeUninit::<sys::AudioStreamBasicDescription>::zeroed().assume_init();
+            let mut output_format = audio_stream_basic_description_zeroed();
 
             // 入力フォーマットの設定
             //
@@ -757,8 +820,7 @@ impl Decoder {
 
         let mut io_packets = DECODE_BUF_FRAMES as u32;
 
-        let mut output_buffer_list =
-            unsafe { MaybeUninit::<sys::AudioBufferList>::zeroed().assume_init() };
+        let mut output_buffer_list = audio_buffer_list_placeholder();
         output_buffer_list.mNumberBuffers = 1;
         output_buffer_list.mBuffers[0].mNumberChannels = OUTPUT_CHANNELS as sys::UInt32;
         output_buffer_list.mBuffers[0].mData = pcm_buf.as_mut_ptr().cast();
@@ -787,6 +849,19 @@ impl Decoder {
         self.encoded_buf.clear();
 
         let byte_size = output_buffer_list.mBuffers[0].mDataByteSize as usize;
+        let pcm_max_bytes = pcm_buf.len().saturating_mul(size_of::<i16>());
+        if byte_size > pcm_max_bytes {
+            return Err(Error {
+                status: sys::kAudio_ParamError,
+                function: "Decoder::decode_impl(mDataByteSize)",
+            });
+        }
+        if !byte_size.is_multiple_of(size_of::<i16>()) {
+            return Err(Error {
+                status: sys::kAudio_ParamError,
+                function: "Decoder::decode_impl(mDataByteSize alignment)",
+            });
+        }
         let size = byte_size / size_of::<i16>();
         if size == 0 {
             return Ok(None);
@@ -813,6 +888,10 @@ impl Decoder {
         in_user_data: *mut c_void,
     ) -> i32 {
         unsafe {
+            let param_err = sys::kAudio_ParamError;
+            if in_user_data.is_null() || io_number_data_packets.is_null() || io_data.is_null() {
+                return param_err;
+            }
             let this: &mut Decoder = &mut *(in_user_data as *mut Decoder);
             let requested_packets = *io_number_data_packets;
 
@@ -829,12 +908,17 @@ impl Decoder {
             // 入力は 1 パケット分のみ（decode が連結を許さないため encoded_buf は 1 パケット相当）
             *io_number_data_packets = requested_packets.min(1);
 
+            let byte_size_u32 = match u32::try_from(this.encoded_buf.len()) {
+                Ok(v) => v,
+                Err(_) => return param_err,
+            };
+
             let io_data = &mut *io_data;
             io_data.mNumberBuffers = 1;
             io_data.mBuffers[0].mNumberChannels = this.input_channels as sys::UInt32;
             // encoded_buf のポインタを直接渡す（コピーは発生しない）
             io_data.mBuffers[0].mData = this.encoded_buf.as_mut_ptr().cast();
-            io_data.mBuffers[0].mDataByteSize = this.encoded_buf.len() as u32;
+            io_data.mBuffers[0].mDataByteSize = byte_size_u32;
 
             // パケット記述情報の設定
             //
@@ -845,7 +929,7 @@ impl Decoder {
             if !out_data_packet_description.is_null() {
                 this.packet_desc.mStartOffset = 0;
                 this.packet_desc.mVariableFramesInPacket = 0;
-                this.packet_desc.mDataByteSize = this.encoded_buf.len() as u32;
+                this.packet_desc.mDataByteSize = byte_size_u32;
 
                 *out_data_packet_description = &mut *this.packet_desc as *mut _;
             }
@@ -863,11 +947,8 @@ impl Drop for Decoder {
     }
 }
 
-// AudioConverter 自体はスレッドセーフではないが、
-// Decoder は &mut self を要求するため、同時アクセスは Rust の型システムで防がれる。
-// Sync は実装しない: &Decoder から &mut self メソッドは呼べないが、
-// AudioConverterRef が内部的にスレッドセーフでないため Sync を保証できない。
-unsafe impl Send for Decoder {}
+// AudioConverter / AudioConverterRef は Apple 公式にスレッド間の移動可否が明記されていない。
+// `unsafe impl Send` を sound に正当化する根拠が取れないため、`Send` は実装しない（`!Send`）。
 
 #[cfg(test)]
 mod tests {
