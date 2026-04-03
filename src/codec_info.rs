@@ -1,6 +1,8 @@
 //! コーデック情報の照会
 
-use crate::{BitRateControlMode, audio_stream_basic_description_zeroed, sys};
+use crate::BitRateControlMode;
+#[cfg(target_os = "macos")]
+use crate::{audio_stream_basic_description_zeroed, sys};
 
 /// オーディオコーデック種別
 ///
