@@ -254,6 +254,8 @@ pub struct Encoder {
     encoded_frames: VecDeque<EncodedFrame>,
     /// finish() が呼ばれたかどうか
     eos: bool,
+    /// コールバックで mData が NULL の場合に使用する一時バッファ
+    scratch_buf: Vec<i16>,
 }
 
 impl Encoder {
@@ -389,6 +391,7 @@ impl Encoder {
                 pcm_buf: Vec::new(),
                 encoded_frames: VecDeque::new(),
                 eos: false,
+                scratch_buf: Vec::new(),
             })
         }
     }
@@ -493,6 +496,10 @@ impl Encoder {
         unsafe {
             let param_err = sys::kAudio_ParamError;
             if in_user_data.is_null() || io_number_data_packets.is_null() || io_data.is_null() {
+                // io_number_data_packets が有効なら 0 をセットする（Apple のコールバック契約）
+                if !io_number_data_packets.is_null() {
+                    *io_number_data_packets = 0;
+                }
                 return param_err;
             }
             let this: &mut Encoder = &mut *(in_user_data as *mut Encoder);
@@ -501,19 +508,26 @@ impl Encoder {
 
             let need_samples = match (packets as usize).checked_mul(channels) {
                 Some(n) => n,
-                None => return param_err,
+                None => {
+                    *io_number_data_packets = 0;
+                    return param_err;
+                }
             };
             // 要求されたパケット数分の PCM データがバッファにあるか確認する。
             // finish() が呼ばれていない場合はデータ不足として K_NO_MORE_INPUT を返す。
             // finish() 後は残りのデータで処理を続ける。
             if !this.eos && this.pcm_buf.len() < need_samples {
+                *io_number_data_packets = 0;
                 return K_NO_MORE_INPUT;
             }
 
             let max_packets = this.pcm_buf.len() / channels;
             let max_packets_u32 = match u32::try_from(max_packets) {
                 Ok(v) => v,
-                Err(_) => return param_err,
+                Err(_) => {
+                    *io_number_data_packets = 0;
+                    return param_err;
+                }
             };
             // 実際に提供可能なパケット数に調整する
             *io_number_data_packets = packets.min(max_packets_u32);
@@ -522,13 +536,19 @@ impl Encoder {
             let io_data = &mut *io_data;
             let ch_u32 = match u32::try_from(channels) {
                 Ok(v) => v,
-                Err(_) => return param_err,
+                Err(_) => {
+                    *io_number_data_packets = 0;
+                    return param_err;
+                }
             };
             let bps = size_of::<i16>() as u32;
             // バイト数 = パケット数 × チャンネル数 × サンプルサイズ
             let size = match packets.checked_mul(ch_u32).and_then(|x| x.checked_mul(bps)) {
                 Some(s) => s,
-                None => return param_err,
+                None => {
+                    *io_number_data_packets = 0;
+                    return param_err;
+                }
             };
             io_data.mNumberBuffers = 1;
             io_data.mBuffers[0].mNumberChannels = channels as sys::UInt32;
@@ -537,17 +557,27 @@ impl Encoder {
             let num_samples = (size / bps) as usize;
             if num_samples > 0 {
                 if io_data.mBuffers[0].mData.is_null() {
-                    return param_err;
+                    // AudioConverter が mData を NULL で渡す場合、コールバック側が
+                    // 自前バッファを提供する（AudioConverter.h の規約）。
+                    // scratch_buf にコピーしてそのポインタを mData にセットする。
+                    this.scratch_buf.clear();
+                    this.scratch_buf
+                        .extend_from_slice(&this.pcm_buf[..num_samples]);
+                    io_data.mBuffers[0].mData = this.scratch_buf.as_mut_ptr().cast();
+                } else {
+                    std::slice::from_raw_parts_mut(io_data.mBuffers[0].mData.cast(), num_samples)
+                        .copy_from_slice(&this.pcm_buf[..num_samples]);
                 }
-                std::slice::from_raw_parts_mut(io_data.mBuffers[0].mData.cast(), num_samples)
-                    .copy_from_slice(&this.pcm_buf[..num_samples]);
             }
 
             io_data.mBuffers[0].mDataByteSize = size;
             // コピー済みのデータをバッファから削除する
             let drain_end = match (packets as usize).checked_mul(channels) {
                 Some(n) if n <= this.pcm_buf.len() => n,
-                _ => return param_err,
+                _ => {
+                    *io_number_data_packets = 0;
+                    return param_err;
+                }
             };
             this.pcm_buf.drain(0..drain_end);
         }
@@ -890,6 +920,10 @@ impl Decoder {
         unsafe {
             let param_err = sys::kAudio_ParamError;
             if in_user_data.is_null() || io_number_data_packets.is_null() || io_data.is_null() {
+                // io_number_data_packets が有効なら 0 をセットする（Apple のコールバック契約）
+                if !io_number_data_packets.is_null() {
+                    *io_number_data_packets = 0;
+                }
                 return param_err;
             }
             let this: &mut Decoder = &mut *(in_user_data as *mut Decoder);
@@ -902,6 +936,7 @@ impl Decoder {
                     return sys::noErr as i32;
                 }
                 // データ不足 → K_NO_MORE_INPUT を返して処理を中断する
+                *io_number_data_packets = 0;
                 return K_NO_MORE_INPUT;
             }
 
@@ -910,7 +945,10 @@ impl Decoder {
 
             let byte_size_u32 = match u32::try_from(this.encoded_buf.len()) {
                 Ok(v) => v,
-                Err(_) => return param_err,
+                Err(_) => {
+                    *io_number_data_packets = 0;
+                    return param_err;
+                }
             };
 
             let io_data = &mut *io_data;

@@ -54,6 +54,12 @@
   - @voluntas
 - [FIX] `mDataByteSize` の境界検証、FFI コールバックの null 検査・整数乗算の checked 化、`encoded_buf.len()` の `u32` 変換、`AudioStreamBasicDescription` / `AudioBufferList` の `assume_init` 依存除去を行う
   - @voluntas
+- [FIX] Encoder / Decoder コールバックのエラー返却時に `*io_number_data_packets = 0` を保証する
+  - Apple の `AudioConverterComplexInputDataProc` 契約に準拠する
+  - @voluntas
+- [FIX] エンコーダーコールバックで `mData == NULL` 時に自前バッファ (`scratch_buf`) を提供する
+  - Apple の AudioConverter.h の規約に準拠し、OS 実装差分への堅牢性を確保する
+  - @voluntas
 
 ### misc
 
