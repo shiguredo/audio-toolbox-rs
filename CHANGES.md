@@ -11,6 +11,12 @@
 
 ## develop
 
+### misc
+
+## 2026.1.0
+
+**リリース日**: 2026-04-03
+
 - [ADD] コーデック情報取得 API `supported_codecs()` を追加する
   - `AudioCodecType`, `AudioCodecInfo`, `AudioDecodingInfo`, `AudioEncodingInfo` 型を追加する
   - デコード判定に `AudioFormatGetPropertyInfo(kAudioFormatProperty_Decoders)` を使用する
