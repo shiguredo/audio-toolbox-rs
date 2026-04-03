@@ -1,6 +1,6 @@
 [package]
 name = "shiguredo_audio_toolbox"
-version = "2026.1.0-canary.0"
+version = "2026.1.0"
 edition = "2024"
 rust-version = "1.88"
 authors = ["Shiguredo Inc."]
@@ -8,8 +8,6 @@ license = "Apache-2.0"
 description = "Rust bindings for Apple Audio Toolbox audio encoders and decoders"
 homepage = "https://github.com/shiguredo/audio-toolbox-rs"
 repository = "https://github.com/shiguredo/audio-toolbox-rs"
-keywords = ["audio", "aac", "encoder", "decoder", "macos"]
-categories = ["multimedia::audio", "os::macos-apis"]
 readme = "README.md"
 build = "build.rs"
 include = ["/src/**", "/tests/**", "/build.rs", "/bindings_docs_stub.rs", "/README.md", "/LICENSE"]
@@ -17,7 +15,7 @@ include = ["/src/**", "/tests/**", "/build.rs", "/bindings_docs_stub.rs", "/READ
 [dependencies]
 
 [build-dependencies]
-bindgen = "0.72.0"
+bindgen = "0.72"
 
 [dev-dependencies]
 shiguredo_mp4 = "2026.2.0"
