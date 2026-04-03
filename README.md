@@ -49,6 +49,7 @@ macOS 専用で、ビルド時に Xcode の SDK ヘッダーを参照して bind
 ## 動作要件
 
 - macOS (arm64)
+- Rust 1.88 以降
 - Xcode Command Line Tools (ビルド時に Audio Toolbox のヘッダーファイルが必要)
 
 ## ビルド
@@ -122,6 +123,62 @@ while let Some(pcm) = decoder.next_frame()? {
 }
 ```
 
+## コーデック情報取得
+
+`supported_codecs()` 関数でシステムがサポートするコーデックの情報を取得できます。
+
+```rust
+use shiguredo_audio_toolbox::supported_codecs;
+
+for info in supported_codecs() {
+    println!("{:?}: decode={}, encode={}",
+        info.codec,
+        info.decoding.supported,
+        info.encoding.supported,
+    );
+    if info.encoding.supported {
+        println!("  bitrate control modes: {:?}", info.encoding.bitrate_control_modes);
+    }
+}
+```
+
+### `AudioCodecType`
+
+| コーデック | `AudioCodecType` |
+| --- | --- |
+| AAC-LC | `AudioCodecType::AacLc` |
+| AAC-HE | `AudioCodecType::AacHe` |
+| AAC-HE v2 | `AudioCodecType::AacHeV2` |
+| AAC-LD | `AudioCodecType::AacLd` |
+| AAC-ELD | `AudioCodecType::AacEld` |
+| MP3 | `AudioCodecType::Mp3` |
+| Opus | `AudioCodecType::Opus` |
+| FLAC | `AudioCodecType::Flac` |
+| ALAC | `AudioCodecType::Alac` |
+
+`supported_codecs()` が返す対象は `EncoderCodec` / `DecoderCodec` に対応するコーデック (AAC-LC, MP3, Opus) のみです。
+
+### `AudioCodecInfo`
+
+| フィールド | 型 | 説明 |
+| --- | --- | --- |
+| `codec` | `AudioCodecType` | コーデック種別 |
+| `decoding` | `AudioDecodingInfo` | デコード対応情報 |
+| `encoding` | `AudioEncodingInfo` | エンコード対応情報 |
+
+### `AudioDecodingInfo`
+
+| フィールド | 型 | 説明 |
+| --- | --- | --- |
+| `supported` | `bool` | デコードが利用可能かどうか |
+
+### `AudioEncodingInfo`
+
+| フィールド | 型 | 説明 |
+| --- | --- | --- |
+| `supported` | `bool` | エンコードが利用可能かどうか |
+| `bitrate_control_modes` | `Vec<BitRateControlMode>` | 利用可能なビットレート制御モード |
+
 ## 設定
 
 ### `EncoderConfig`
@@ -158,6 +215,27 @@ while let Some(pcm) = decoder.next_frame()? {
 | --- | --- | --- |
 | `data` | `Vec<u8>` | 圧縮データ |
 | `samples` | `usize` | フレームに含まれるサンプル数 |
+
+### `Error`
+
+| フィールド | 型 | 説明 |
+| --- | --- | --- |
+| `status` | `i32` | AudioConverter API のステータスコード (OSStatus) |
+| `function` | `&'static str` | エラーが発生した API 関数名 |
+
+## サンプル
+
+### sine_to_mp4
+
+正弦波 PCM を AAC-LC エンコードして MP4 ファイルに保存するサンプルです。
+
+```bash
+cargo run --example sine_to_mp4 -- --bitrate 256000 --duration 10 --freq 880 --output tone.mp4
+```
+
+## スレッド安全性
+
+`Encoder` / `Decoder` は `Send` を実装していません。Apple の AudioConverter API にスレッド間移動の規範的根拠がないためです。
 
 ## ライセンス
 
