@@ -18,4 +18,4 @@ include = ["/src/**", "/tests/**", "/build.rs", "/README.md", "/LICENSE"]
 bindgen = "0.72"
 
 [dev-dependencies]
-shiguredo_mp4 = "2026.2.0"
+shiguredo_mp4 = "2026.3"
