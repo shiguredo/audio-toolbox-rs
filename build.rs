@@ -3,7 +3,6 @@ use std::{path::PathBuf, process::Command};
 fn main() {
     // build.rs が更新されたら、依存ライブラリを再ビルドする
     println!("cargo::rerun-if-changed=build.rs");
-    println!("cargo::rerun-if-changed=bindings_docs_stub.rs");
     println!("cargo::rerun-if-env-changed=DOCS_RS");
 
     // 各種変数やビルドディレクトリのセットアップ
@@ -22,11 +21,16 @@ fn main() {
         // ドキュメント生成時の型チェックに必要な識別子だけをスタブで出力する。
         //
         // See also: https://docs.rs/about/builds
-        let stub = include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/bindings_docs_stub.rs"
-        ));
-        std::fs::write(output_bindings_path, stub).expect("write file error");
+        std::fs::write(
+            output_bindings_path,
+            concat!(
+                "pub struct OpaqueAudioConverter;\n",
+                "pub type AudioConverterRef = *mut OpaqueAudioConverter;\n",
+                "#[derive(Debug)]\n",
+                "pub struct AudioStreamPacketDescription;\n",
+            ),
+        )
+        .expect("write file error");
         return;
     }
 
