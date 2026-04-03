@@ -90,6 +90,7 @@ const ENCODE_BUF_SIZE: usize = 4096;
 const DECODE_BUF_FRAMES: usize = 5760;
 
 /// `AudioStreamBasicDescription` を全フィールド明示のゼロで初期化する（`zeroed().assume_init()` に依存しない）。
+#[cfg(target_os = "macos")]
 pub(crate) fn audio_stream_basic_description_zeroed() -> sys::AudioStreamBasicDescription {
     sys::AudioStreamBasicDescription {
         mSampleRate: 0.0,
@@ -105,6 +106,7 @@ pub(crate) fn audio_stream_basic_description_zeroed() -> sys::AudioStreamBasicDe
 }
 
 /// 1 バッファ分の `AudioBufferList` を初期化する（`zeroed().assume_init()` に依存しない）。
+#[cfg(target_os = "macos")]
 fn audio_buffer_list_placeholder() -> sys::AudioBufferList {
     sys::AudioBufferList {
         mNumberBuffers: 0,
@@ -258,6 +260,7 @@ pub struct Encoder {
     scratch_buf: Vec<i16>,
 }
 
+#[cfg(target_os = "macos")]
 impl Encoder {
     /// エンコーダーインスタンスを生成する
     ///
@@ -585,6 +588,7 @@ impl Encoder {
     }
 }
 
+#[cfg(target_os = "macos")]
 impl Drop for Encoder {
     fn drop(&mut self) {
         // AudioConverter のリソースを解放する
@@ -635,6 +639,7 @@ pub enum DecoderCodec {
     Opus,
 }
 
+#[cfg(target_os = "macos")]
 impl DecoderCodec {
     /// AudioStreamBasicDescription の mFormatID を返す
     fn format_id(self) -> u32 {
@@ -736,6 +741,7 @@ pub struct Decoder {
     input_channels: u8,
 }
 
+#[cfg(target_os = "macos")]
 impl Decoder {
     /// デコーダーインスタンスを生成する
     ///
@@ -976,6 +982,7 @@ impl Decoder {
     }
 }
 
+#[cfg(target_os = "macos")]
 impl Drop for Decoder {
     fn drop(&mut self) {
         // AudioConverter のリソースを解放する

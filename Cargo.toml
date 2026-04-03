@@ -10,7 +10,7 @@ homepage = "https://github.com/shiguredo/audio-toolbox-rs"
 repository = "https://github.com/shiguredo/audio-toolbox-rs"
 readme = "README.md"
 build = "build.rs"
-include = ["/src/**", "/tests/**", "/build.rs", "/bindings_docs_stub.rs", "/README.md", "/LICENSE"]
+include = ["/src/**", "/tests/**", "/build.rs", "/README.md", "/LICENSE"]
 
 [dependencies]
 
