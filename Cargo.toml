@@ -3,19 +3,18 @@ name = "shiguredo_audio_toolbox"
 version = "2026.1.0"
 edition = "2024"
 rust-version = "1.88"
-authors = ["Shiguredo Inc."]
-license = "Apache-2.0"
 description = "Rust bindings for Apple Audio Toolbox audio encoders and decoders"
+readme = "README.md"
 homepage = "https://github.com/shiguredo/audio-toolbox-rs"
 repository = "https://github.com/shiguredo/audio-toolbox-rs"
-readme = "README.md"
+license = "Apache-2.0"
 build = "build.rs"
-include = ["/src/**", "/tests/**", "/build.rs", "/README.md", "/LICENSE"]
+include = ["/LICENSE", "/README.md", "/build.rs", "/src/**"]
 
 [dependencies]
 
-[build-dependencies]
-bindgen = "0.72"
-
 [dev-dependencies]
 shiguredo_mp4 = "2026.3"
+
+[build-dependencies]
+bindgen = "0.72"
