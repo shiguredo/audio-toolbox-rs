@@ -11,6 +11,12 @@
 
 ## develop
 
+- [FIX] Decoder のコールバックが 1 回の AudioConverterFillComplexBuffer 呼び出しで同じパケットを複数回返していた不具合を修正する
+  - `Decoder` に `packet_provided_in_this_fill` フラグを追加し、1 回の `AudioConverterFillComplexBuffer` 呼び出し内で同じ入力パケットを 2 回目以降に提供しないようにする
+  - `finish()` 後かつ入力が空の場合は `AudioConverterFillComplexBuffer` を呼ばずに `Ok(None)` を早期リターンし、ストリーム終端を誤って通知することによる `-50` エラーを防ぐ
+  - `tests/test_decoder.rs` に非無音の AAC-LC パケットを使った回帰テストを追加する
+  - @voluntas
+
 ### misc
 
 ## 2026.1.0

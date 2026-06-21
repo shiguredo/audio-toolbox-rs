@@ -739,6 +739,12 @@ pub struct Decoder {
     packet_desc: Box<sys::AudioStreamPacketDescription>,
     /// 入力のチャンネル数（コールバック内で使用）
     input_channels: u8,
+    /// 現在の decode_impl 呼び出しですでにパケットを提供したかどうか
+    ///
+    /// AudioConverterFillComplexBuffer が 1 回の呼び出しでコールバックを複数回呼んだ場合、
+    /// 同じ入力パケットを 2 回目以降に再提供しないようにするためのフラグ。
+    /// decode_impl 開始時に false にリセットし、コールバックで 1 パケット提供後に true にする。
+    packet_provided_in_this_fill: bool,
 }
 
 #[cfg(target_os = "macos")]
@@ -811,6 +817,7 @@ impl Decoder {
                     mDataByteSize: 0,
                 }),
                 input_channels: config.input_channels,
+                packet_provided_in_this_fill: false,
             })
         }
     }
@@ -851,6 +858,15 @@ impl Decoder {
 
     /// AudioConverterFillComplexBuffer を呼び出してデコードを実行する
     fn decode_impl(&mut self) -> Result<Option<Vec<i16>>, Error> {
+        // 1 回の AudioConverterFillComplexBuffer 呼び出し内で
+        // 同じパケットを複数回提供しないようにリセットする
+        self.packet_provided_in_this_fill = false;
+
+        // finish() 後かつ入力がない場合は、これ以上デコード結果がない
+        if self.eos && self.encoded_buf.is_empty() {
+            return Ok(None);
+        }
+
         // 出力バッファ: ステレオ PCM (DECODE_BUF_FRAMES フレーム分)
         let mut pcm_buf = vec![0i16; DECODE_BUF_FRAMES * OUTPUT_CHANNELS];
 
@@ -872,11 +888,15 @@ impl Decoder {
                 std::ptr::null_mut(),
             )
         };
-        // コールバックが K_NO_MORE_INPUT を返した場合、入力データが不足している
-        if status == K_NO_MORE_INPUT {
-            return Ok(None);
+        // コールバックが K_NO_MORE_INPUT を返した場合でも、
+        // 既に供給された 1 パケットから生成可能な出力が output_buffer_list に残っている可能性がある。
+        // そのため 0 または K_NO_MORE_INPUT 以外のステータスだけをエラーとする。
+        if status != 0 && status != K_NO_MORE_INPUT {
+            return Err(Error {
+                status,
+                function: "AudioConverterFillComplexBuffer",
+            });
         }
-        Error::check(status, "AudioConverterFillComplexBuffer")?;
 
         // デコード処理が完了したら入力バッファをクリアする
         //
@@ -933,6 +953,24 @@ impl Decoder {
                 return param_err;
             }
             let this: &mut Decoder = &mut *(in_user_data as *mut Decoder);
+
+            // 同じ decode_impl 呼び出し内で既にパケットを提供済みの場合、
+            // 残っている encoded_buf を誤って再提供しないように追加入力不足を通知する。
+            if this.packet_provided_in_this_fill {
+                // 同じ fill 呼び出し内で既に 1 パケットを提供済みなので、
+                // これ以上入力がないことを AudioConverter に伝える。
+                // mNumberBuffers は AudioConverter から渡された構造体の構造を維持するため 1 のままとし、
+                // 提供するパケット数、バッファサイズ、パケット記述を 0 / null に設定する。
+                *io_number_data_packets = 0;
+                let io_data = &mut *io_data;
+                io_data.mBuffers[0].mDataByteSize = 0;
+                io_data.mBuffers[0].mData = std::ptr::null_mut();
+                if !out_data_packet_description.is_null() {
+                    *out_data_packet_description = std::ptr::null_mut();
+                }
+                return K_NO_MORE_INPUT;
+            }
+
             let requested_packets = *io_number_data_packets;
 
             if this.encoded_buf.is_empty() {
@@ -977,6 +1015,9 @@ impl Decoder {
 
                 *out_data_packet_description = &mut *this.packet_desc as *mut _;
             }
+
+            // 1 パケットを提供したことを記録し、同じ fill 呼び出し内での再提供を防ぐ
+            this.packet_provided_in_this_fill = true;
         }
         sys::noErr as i32
     }

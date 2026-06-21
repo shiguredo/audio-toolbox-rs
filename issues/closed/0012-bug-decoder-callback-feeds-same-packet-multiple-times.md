@@ -2,7 +2,7 @@
 
 - Priority: High
 - Created: 2026-06-21
-- Completed: {YYYY-MM-DD}
+- Completed: 2026-06-21
 - Model: Kimi K2.7 Code
 - Branch: feature/fix-decoder-callback-feeds-same-packet-multiple-times
 - Polished: 2026-06-21
@@ -54,9 +54,9 @@ K_NO_MORE_INPUT は「今はこれ以上入力がないが、今後の decode_im
 
 コールバックで noErr + 0 パケットを返すと、AudioConverter にストリーム終端を誤通知し、後続のパケットがデコードされなくなる恐れがある。そのため、1 パケット提供後の追加入力不足は K_NO_MORE_INPUT で表す。
 
-finish() 後かつ encoded_buf が空の場合は、これ以上入力がないことを示すため noErr + 0 パケットを返す（既存通り）。
+finish() 後かつ encoded_buf が空の場合は、`decode_impl` の先頭で `Ok(None)` を早期リターンする。これにより `noErr + 0 パケット` によるストリーム終端通知を行わず、後続の `next_frame()` 呼び出しでも `-50` エラーが発生しないようにする。
 
-encoded_buf をコールバック内で即座にクリアする案は採用しない。AudioConverter がコールバック戻り後も mData ポインタを非同期に参照する可能性を排除できないため、クリアは AudioConverterFillComplexBuffer 呼び出し戻り後 （885 行目）に維持する。
+encoded_buf をコールバック内で即座にクリアする案は採用しない。AudioConverter がコールバック戻り後も mData ポインタを非同期に参照する可能性を排除できないため、クリアは AudioConverterFillComplexBuffer 呼び出し戻り後に維持する。
 
 ## 完了条件
 
@@ -74,13 +74,11 @@ encoded_buf をコールバック内で即座にクリアする案は採用し�
 
 ## 解決方法
 
-Decoder 構造体に packet_provided_in_this_fill: bool フィールドを追加し、以下のように制御する：
-
-1. decode_impl 開始時に packet_provided_in_this_fill = false にリセットする
-2. callback の先頭で、以下の順序で判定する。packet_provided_in_this_fill のチェックを encoded_buf.is_empty() より先に置くのは、同じ fill 呼び出し内で既にパケットを提供済みの場合、残っている encoded_buf を誤って再提供するのを防ぐためである：
-   - ポインタ null チェック
-   - packet_provided_in_this_fill == true なら *io_number_data_packets = 0 を設定し、io_data.mBuffers[0].mDataByteSize も 0 に設定して K_NO_MORE_INPUT を返す。out_data_packet_description が null でなければ *out_data_packet_description = std::ptr::null_mut() とする
-   - encoded_buf.is_empty() の既存チェック（空で eos なら *io_number_data_packets = 0 で noErr、空で eos == false なら *io_number_data_packets = 0 で K_NO_MORE_INPUT）
-3. パケットを提供した直後に packet_provided_in_this_fill = true にする
-4. decode_impl で AudioConverterFillComplexBuffer 呼び出し後、status が 0 でも K_NO_MORE_INPUT でもない場合のみエラーとする。status が 0 または K_NO_MORE_INPUT の場合は output_buffer_list を通常通り処理し、生成された PCM があれば返す
-5. decode_impl 終了時に encoded_buf.clear() を実行する（既存通り）
+- `src/lib.rs` の `Decoder` 構造体に `packet_provided_in_this_fill: bool` フィールドを追加し、1 回の `AudioConverterFillComplexBuffer` 呼び出し内で同じパケットを複数回提供しないようにした。
+- `decode_impl` 開始時に `packet_provided_in_this_fill = false` にリセットする。
+- `decode_impl` の先頭で、`finish()` 後かつ `encoded_buf` が空の場合は `Ok(None)` を早期リターンする。これにより `noErr + 0 パケット` によるストリーム終端通知後の `-50` エラーを回避する。
+- `callback` 内で、ポインタ null チェックの直後に `packet_provided_in_this_fill` を確認する。true の場合は `*io_number_data_packets = 0`、`io_data.mBuffers[0].mDataByteSize = 0`、`out_data_packet_description` が null でなければ `*out_data_packet_description = std::ptr::null_mut()` を設定し、`K_NO_MORE_INPUT` を返す。
+- `callback` で実際にパケットを提供した直後に `packet_provided_in_this_fill = true` にする。
+- `decode_impl` で `AudioConverterFillComplexBuffer` 呼び出し後、`status` が `0` でも `K_NO_MORE_INPUT` でもない場合のみエラーとする。`0` または `K_NO_MORE_INPUT` の場合は `output_buffer_list` を通常通り処理し、生成された PCM があれば返す。
+- `tests/include/helpers.rs` に非無音の正弦波 PCM 生成関数 `sine_pcm` と AAC-LC パケット生成関数 `encode_aac_packets` を追加した。
+- `tests/test_decoder.rs` に `decode_multiple_aac_packets_no_duplicate_feeds` テストを追加し、複数パケットの連続投入時に各パケットが 1 回ずつデコードされ、1 回の `next_frame()` で返るフレーム数が AAC-LC の 1 パケットあたりフレーム数の 2 倍を超えないことを検証する。

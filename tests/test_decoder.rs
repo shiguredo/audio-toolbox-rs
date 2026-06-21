@@ -94,3 +94,95 @@ fn decode_finish_then_next_frame_returns_none_without_input() {
     assert!(d.next_frame().expect("next_frame").is_none());
     assert!(d.next_frame().expect("next_frame").is_none());
 }
+
+/// 複数の AAC-LC パケットを連続投入した場合、各パケットが 1 回ずつデコードされ、
+/// 同じパケットが 1 回の next_frame() 内で複数回提供されないことを検証する。
+#[test]
+fn decode_multiple_aac_packets_no_duplicate_feeds() {
+    // エンコーダーに渡す 1024 フレーム単位のブロック数。
+    // エンコーダーはプライミング等のため、これより多くの圧縮パケットを生成することがある。
+    let input_blocks = 3;
+    let packets = encode_aac_packets(input_blocks);
+    assert!(
+        !packets.is_empty(),
+        "エンコーダーは 1 パケット以上生成しなければならない"
+    );
+
+    let mut decoder = decoder_aac_stereo_48k();
+    let mut total_frames = 0usize;
+
+    for (i, packet) in packets.iter().enumerate() {
+        decoder
+            .decode(packet)
+            .unwrap_or_else(|e| panic!("パケット {i} の decode に失敗した: {e}"));
+
+        // `Ok(None)` になるまで next_frame() を繰り返し、
+        // 1 回の decode で生成されるすべての PCM を取得する
+        while let Some(frame) = decoder
+            .next_frame()
+            .unwrap_or_else(|e| panic!("パケット {i} の next_frame でエラーが発生した: {e}"))
+        {
+            let frames = frame.len() / TEST_CHANNELS as usize;
+            // 上限を 2 倍にしているのは、プライミングサンプル等で 1 パケットあたりの
+            // 理論フレーム数をわずかに超えることがあるためである。
+            // 同じパケットが複数回提供されるバグの場合は、この数倍のフレーム数が返る。
+            assert!(
+                frames <= AAC_FRAMES_PER_PACKET * 2,
+                "1 回の next_frame が返したフレーム数が多すぎる: {frames} > {}",
+                AAC_FRAMES_PER_PACKET * 2
+            );
+            total_frames += frames;
+        }
+    }
+
+    // プライミングサンプル等を考慮し、総返却フレーム数は投入パケット数 × 1024 の近傍であることを確認する
+    let expected = packets.len() * AAC_FRAMES_PER_PACKET;
+    let tolerance = AAC_FRAMES_PER_PACKET * 2;
+    assert!(
+        total_frames >= expected.saturating_sub(tolerance) && total_frames <= expected + tolerance,
+        "デコード済み総フレーム数 {total_frames} が期待範囲 [{}, {}] を超えた",
+        expected.saturating_sub(tolerance),
+        expected + tolerance
+    );
+}
+
+/// 空のパケットを decode して finish した後、next_frame() を複数回呼んでもエラーにならない。
+#[test]
+fn finish_after_empty_decode_does_not_error() {
+    let mut d = decoder_aac_stereo_48k();
+    d.decode(&[]).expect("空の decode");
+    d.finish().expect("finish 呼び出し");
+    assert!(d.next_frame().expect("1 回目の next_frame").is_none());
+    assert!(d.next_frame().expect("2 回目の next_frame").is_none());
+}
+
+/// 1 回の decode 後に next_frame() をループして、生成されたすべての PCM を取得できる。
+#[test]
+fn decode_then_loop_next_frame_consumes_all_output() {
+    let packets = encode_aac_packets(1);
+    assert!(
+        !packets.is_empty(),
+        "エンコーダーは 1 パケット以上生成しなければならない"
+    );
+
+    let mut decoder = decoder_aac_stereo_48k();
+    decoder
+        .decode(&packets[0])
+        .expect("最初のパケットの decode");
+
+    let mut total_frames = 0usize;
+    while let Some(frame) = decoder.next_frame().expect("next_frame 呼び出し") {
+        let frames = frame.len() / TEST_CHANNELS as usize;
+        assert!(
+            frames <= AAC_FRAMES_PER_PACKET * 2,
+            "1 回の next_frame が返したフレーム数が多すぎる: {frames} > {}",
+            AAC_FRAMES_PER_PACKET * 2
+        );
+        total_frames += frames;
+    }
+
+    assert!(
+        total_frames > 0,
+        "1 パケットのデコード結果から PCM が取得できなければならない"
+    );
+}
