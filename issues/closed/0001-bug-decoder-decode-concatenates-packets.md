@@ -1,7 +1,7 @@
 # Decoder::decode が複数回呼ばれると圧縮データが連結され誤デコードされる
 
-Created: 2026-04-01  
-Completed: 2026-04-01  
+Created: 2026-04-01
+Completed: 2026-04-01
 Model: Claude Opus 4.5
 
 ## なぜこの対応が必要か
