@@ -4,8 +4,8 @@
 - Created: 2026-07-21
 - Completed:
 - Model: Opus 4.7
-- Branch: feature/change-update-changes-md-develop-section
-- Polished:
+- Branch: feature/update-changes-md-develop-section
+- Polished: 2026-07-31
 
 ## 目的
 
@@ -13,48 +13,50 @@
 
 ## 優先度根拠
 
-Medium とする。動作上の問題ではないが、次回リリース (2026.2.0) 前には必ず整えなければならない。shiguredo-changelog 規約に照らし、`.rst` / `.md` の変更以外は `### misc` にでも記載すべき。特に `Cargo.toml` の `include` 変更は crates.io に配布される中身が変わるため、利用者に必ず伝える必要がある `[CHANGE]` 級のエントリ。
+Medium とする。動作上の問題ではないが、次回リリース (2026.2.0) 前には必ず整えなければならない。shiguredo-changelog 規約に照らし、機能に直接影響しない変更は `### misc` に記載すべき。特に `Cargo.toml` の `include` 変更は crates.io に配布される中身が変わるため、利用者に必ず伝える必要がある。ただし公開 API の互換性には影響しないため、種別は `[CHANGE]` (後方互換のない変更) ではなく `### misc` の `[UPDATE]` で記載する。
 
 ## 現状
 
-`CHANGES.md:12-21` の `## develop` セクションには issue 0012 の FIX 1 件のみが記載されており、以下のコミットが未反映:
+`CHANGES.md` の `## develop` セクションには issue 0012 の FIX 1 件のみが記載されており、以下のコミットが未反映 (日付昇順):
 
-- `c152a15` (2026-06-21) Cargo.toml を整理し依存ライブラリを更新する
-  - `authors` フィールド削除
-  - `include` から `tests` 相当を除外 (crates.io 配布物の変更)
-  - `dev-dependencies` のマイナーバージョン更新
-- `d4cc68e` (2026-05-20) GitHub Actions の外部 Action を commit SHA で固定する (misc)
+- `d4cc68e` (2026-05-20) GitHub Actions の外部 Action を commit SHA で固定する (misc。claude.yml は `b3129e7` で削除済みのため記載しない)
 - `b3129e7` (2026-05-20) Claude Assistant ワークフローを削除する (misc)
-- `58beff2` (?) shiguredo-audio-toolbox スキルを追加する (misc)
-- `8c8de56` (2026-07-17) prek.toml を shiguredo-rust 規約に合わせて整備する (misc)
-- `abfba32` 整備 (内容次第で misc か対象外)
+- `c152a15` (2026-06-21) Cargo.toml を整理し依存ライブラリを更新する (misc。`authors` フィールド削除、`include` から `tests` 相当を除外 (crates.io 配布物の変更)、`Cargo.lock` の推移的依存 (bitflags / libc / regex 等) の更新。Cargo.toml の整理と Cargo.lock の依存更新の 2 エントリに分けて記載する)
+- `8c8de56` (2026-07-17) prek.toml を shiguredo-rust 規約に合わせて整備する (misc。prek.toml と同時に `issues/closed/` 配下の .md も変更しているが、.md は対象外のため prek.toml のみ記載)
 
-加えて `CHANGES.md:20-21` の `## develop / ### misc` は見出しだけ残って中身が空。
+対象外の確定事項 (日付昇順):
 
-なお、issue 0022 (issue 番号残存除去) と関連するため、`## develop` に追記するエントリでも issue 番号 / issue ファイル名を書かないよう注意する。
+- `a7f7f17` (2026-04-03) — 2026.1.0 リリース内容のマージのため対象外
+- `58beff2` (2026-06-21) shiguredo-audio-toolbox スキルを追加する — `skills/shiguredo-audio-toolbox/SKILL.md` (.md) のみの変更のため、shiguredo-changelog 規約「.rst / .md ファイルの変更は変更履歴に反映しないこと」により対象外
+- `243b4c7` (2026-06-21) AGENTS.md を更新する — .md のみの変更のため対象外
+- `5a0f6ca` (2026-06-21) 0013 closed Encoder / Decoder のコールバック API 化を検討する — issue ファイル管理のため対象外
+- `7e3ce83` (2026-06-21) [canary] Bump version — バージョン更新のみのため対象外 (CHANGES.md はリリース時に `## バージョン` セクションとして表現されるため)
+- `abfba32` (2026-07-17) AGENTS.md に shiguredo-python スキル参照を追記する — .md のみの変更のため対象外
+- `874c6f8` (2026-07-21) 0014-0038 open — issue ファイル管理のため対象外
+
+加えて `## develop / ### misc` は見出しだけ残って中身が空。
 
 ## 完了条件
 
-- `CHANGES.md ## develop` に上記コミットの変更が shiguredo-changelog 規約に沿って追記される。
-- `Cargo.toml` の `include` 変更は `[CHANGE]` として明示される。
+- `CHANGES.md ## develop` に上記の追記対象コミット (`c152a15` / `d4cc68e` / `b3129e7` / `8c8de56`) の変更が shiguredo-changelog 規約に沿って追記される。
+- `Cargo.toml` の `include` 変更は `### misc` の [UPDATE] として明示される。
 - 空の `### misc` セクションは中身が入るか削除される。
 - issue 番号 / issue ファイル名を新規に含めない。
 - shiguredo-changelog スキルを参照した上で分類とフォーマットが正しい。
+- 対象は `## develop` セクションのみとし、他のセクション (2026.1.0 等) は変更しない。
 
 ## 解決方法
 
-`## develop` セクションを以下のように書き直す (順序は shiguredo-changelog 規約に従う):
+`## develop` セクションを以下のように書き直す (エントリの順序は現状セクションと同じ日付昇順とし、各エントリに担当者行 `- @voluntas` を付ける):
 
-- `[CHANGE]` として `Cargo.toml` の `include` 変更を記載する
-  - 配布物から `tests` 相当が外れた旨を利用者向けに書く
-- `[FIX]` として既存の Decoder callback 修正エントリはそのまま
-- `### misc` に以下を列挙する:
-  - GitHub Actions の外部 action を commit SHA で固定する変更
-  - Claude Assistant ワークフロー削除
-  - shiguredo-audio-toolbox スキル追加
-  - prek.toml を shiguredo-rust 規約に合わせて整備
-  - `abfba32` の内容 (git show で確認して該当するなら)
-  - `dev-dependencies` の更新
-- 上記のいずれかが `[CHANGE]` に該当するか (例えば prek 移行は開発者向けとして misc) を書き分ける
+- 既存の `[FIX]` (Decoder callback 修正エントリ) はそのまま
+- `### misc` に以下を列挙する (種別は [UPDATE]):
+  - GitHub Actions の外部 Action を commit SHA で固定する変更 (`d4cc68e`)
+  - Claude Assistant ワークフロー削除 (`b3129e7`)
+  - `Cargo.toml` の整理 (`c152a15`。`authors` フィールド削除、配布物から `tests` 相当が外れた旨を利用者向けに書く。`include` の記述内容は issue 0027 により追加変更される可能性があるため、本エントリは `tests` 除外の事実のみを書く)
+  - `Cargo.lock` の依存更新 (`c152a15`。bitflags / libc / regex 等の推移的依存の更新)
+  - prek.toml を shiguredo-rust 規約に合わせて整備 (`8c8de56`)
 
-書き加える際は shiguredo-changelog スキルの必読と、issue 0022 (issue 番号残存の除去) の方針を先に読んでから作業する。
+`c152a15` は上記の通り `Cargo.toml` の整理と `Cargo.lock` の依存更新の 2 エントリに分けて記載する。
+
+書き加える際は shiguredo-changelog スキルを参照する。
