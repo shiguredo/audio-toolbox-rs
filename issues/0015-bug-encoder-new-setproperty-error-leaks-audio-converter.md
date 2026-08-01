@@ -5,19 +5,19 @@
 - Completed:
 - Model: Opus 4.7
 - Branch: feature/fix-encoder-new-setproperty-error-leaks-audio-converter
-- Polished:
+- Polished: 2026-07-31
 
 ## 目的
 
-`Encoder::new` が `AudioConverterNew` で AudioConverter を取得した後、`AudioConverterSetProperty` のいずれかで失敗して早期 return したとき、`Self` が組み立てられていないため `Drop` が走らず AudioConverter がリークする不具合を修正する。同時に `codec_info::query_bitrate_control_modes` に潜む panic 経路のリークも同じガード型で塞ぐ。
+`Encoder::new` が `AudioConverterNew` で AudioConverter を取得した後、`AudioConverterSetProperty` のいずれかで失敗して早期 return したとき、`Self` が組み立てられていないため `Drop` が走らず AudioConverter がリークする不具合を修正する。
 
 ## 優先度根拠
 
-High とする。無効なビットレート値等で `Encoder::new` を試行する既存のテストパスで実際に踏まれており (`tests/test_encoder.rs::encoder_new_rejects_invalid_bitrate`)、長時間動作するプロセスで無効設定を試行し続けると AudioConverter リソースが蓄積してシステム負荷を高める。過去に issues/0004〜0012 で進めた FFI hardening の一環として塞ぐべき残存の穴。
+High とする。無効なビットレート値で `Encoder::new` を試行する既存のテストパスで実際に踏まれており (`tests/test_encoder.rs` の `encoder_new_rejects_invalid_bitrate` 等)、FFI リソースのリークは繰り返し発生すると蓄積し得る。過去に issues/0004〜0008 の hardening と issues/0010〜0012 のコールバック契約修正を進めてきた堅牢性向上の方針とも整合しない。
 
 ## 現状
 
-`src/lib.rs:323-388` の `Encoder::new` は以下の構造で書かれている。
+`src/lib.rs` の `Encoder::new` は以下の構造で書かれている。
 
 ```rust
 let mut converter = std::ptr::null_mut();
@@ -45,46 +45,29 @@ if let Some(vbr_quality) = config.vbr_quality {
 Ok(Self { converter, ... })  // ここに到達して初めて Drop が有効になる
 ```
 
-いずれかの `?` から早期 return した場合、`converter` は解放されずにプロセスに残り続ける。`impl Drop for Encoder` (`src/lib.rs:592-599`) は `Self` 構築後にしか働かない。
+いずれかの `?` から早期 return した場合、`converter` は解放されずにプロセスに残り続ける。`src/lib.rs` の `impl Drop for Encoder` は `Self` 構築後にしか働かない。
 
-`tests/test_encoder.rs:43-45` の `encoder_new_rejects_invalid_bitrate` は `bitrate = Some(1_000)` を渡し、`AudioConverterSetProperty(EncodeBitRate)` の失敗を Err で確認しているが、その裏でリークが毎回起きている。
+`tests/test_encoder.rs` の `encoder_new_rejects_invalid_bitrate` は `bitrate = Some(1_000)` を渡し、`AudioConverterSetProperty(EncodeBitRate)` の失敗を Err で確認しているが、その裏でリークが毎回起きている。同じ失敗パスは `src/lib.rs` の `#[cfg(test)]` モジュールのテストにもある。
 
-同じ問題は `src/codec_info.rs:194-240` の `query_bitrate_control_modes` にもある。`Vec::push` が allocator failure で panic した場合 (実用上は稀だが)、`AudioConverterDispose(converter)` に到達せず converter がリークする。
+なお、Decoder 側 (`src/lib.rs` の `Decoder::new`) は `AudioConverterNew` 以降に失敗し得るプロパティ設定が存在しないため、エラー返却経路のリークはない。
 
-なお、Decoder 側 (`src/lib.rs:806-807`) は `AudioConverterNew` 直後に `Ok(Self { ... })` するため同種のリークはない。本 issue の対象は Encoder 側と `query_bitrate_control_modes` の 2 箇所。
+`src/codec_info.rs` の `query_bitrate_control_modes` は明示的に `AudioConverterDispose` を呼んでおりリークしない。`Vec::push` の allocator failure はデフォルトのアロケータではプロセス abort に至るため実質的なリークにならず、本 issue の対象としない。
 
 ## 設計方針
 
-Rust の RAII に則り、`sys::AudioConverterRef` を保持する薄い drop-only なガード型を crate 内に導入する。`Encoder::new` と `query_bitrate_control_modes` の両方で使う。
-
-```rust
-struct ConverterGuard(sys::AudioConverterRef);
-impl Drop for ConverterGuard {
-    fn drop(&mut self) {
-        unsafe { sys::AudioConverterDispose(self.0); }
-    }
-}
-```
-
-- `Encoder::new` では `AudioConverterNew` の直後にガードで包み、全 `SetProperty` を通過したら `mem::forget(guard)` で解放を抑止して `Self` を組み立てる。あるいはガード型で持たせたまま `Encoder` に取り込む API を検討する。
-- `query_bitrate_control_modes` では `for` ループの前にガードで包み、正常時も panic 時もガードの `Drop` に任せる。明示の `AudioConverterDispose` 呼び出しは削除する。
+`Encoder::new` では `AudioConverterNew` の成功後、`converter` が null でないことを確認してから `Self` を先に組み立て、その後、組み立てた `Self` の `converter` フィールドに対して各 `AudioConverterSetProperty` を実行する。SetProperty の失敗時は `?` による早期 return で `Self` が drop され、既存の `impl Drop for Encoder` が `AudioConverterDispose` を呼ぶ。RAII によりリークしないことが自明になるため、専用のガード型や `mem::forget` / `ManuallyDrop` は導入しない。
 
 ## 完了条件
 
-- `Encoder::new` の `AudioConverterSetProperty(...)` 失敗時に AudioConverter がリークしない (Instruments / leaks コマンド / valgrind 相当での確認は必須ではないが、コード上リークしないことをレビューで確認できる)。
-- `query_bitrate_control_modes` の panic 経路でも同様にリークしない。
+- `Encoder::new` の `AudioConverterSetProperty(...)` 失敗時に AudioConverter がリークしない (コード上リークしないことをレビューで確認できる)。
 - 既存の `encoder_new_rejects_invalid_bitrate` 等のテストが引き続きパスする。
-- 新しい失敗パス (SetProperty 各段) を明示的に踏むテストを最小限追加する。
+- `CHANGES.md` の develop に [FIX] として追記する。
 
 ## 解決方法
 
-1. `src/lib.rs` (もしくは `src/sys.rs` の隣) にプライベートな `ConverterGuard` 型を追加する。`Drop` で `AudioConverterDispose` を呼ぶ。
-2. `Encoder::new` を書き換える:
-   - `AudioConverterNew` 直後に `let guard = ConverterGuard(converter);` を導入
-   - 各 `AudioConverterSetProperty` は `guard.0` に対して行う (もしくはガードにアクセサを生やす)
-   - 全プロパティ設定を通過したら `let converter = ManuallyDrop::new(guard); Ok(Self { converter: converter.0, ... })` のように所有権を移す
-3. `codec_info::query_bitrate_control_modes` を書き換える:
-   - `create_probe_converter` の戻り値をガードで包む
-   - 明示的な `unsafe { sys::AudioConverterDispose(converter); }` を削除
-4. 追加テスト:
-   - `Encoder::new` に無効な `codec_quality` / `vbr_quality` を渡し、SetProperty のより後段で失敗する経路を最小限確認する (現状の `bitrate = Some(1_000)` は最初の SetProperty 段で失敗するため後段の分岐がカバーされていない可能性がある。ただし後段で必ず失敗する値の特定は Apple 仕様依存で難しい場合がある)。
+1. `src/lib.rs` の `Encoder::new` を書き換える:
+   - `AudioConverterNew` の成功後、`converter` が null でないことを確認してから `Self` を組み立て、ローカル変数に保持する (`src/codec_info.rs` の `create_probe_converter` と同じ null 検査。`AudioConverterDispose` の null 入力時の挙動は Apple ドキュメントに明記されていないため)。null だった場合は `Error` を返して早期 return する (例: `Error { status: sys::kAudio_ParamError, function: "AudioConverterNew" }`。null のため dispose は不要)
+   - 各 `AudioConverterSetProperty` はローカル変数の `Self` の `converter` フィールドに対して実行する
+   - SetProperty の失敗時はそのまま `?` で早期 return する (ローカル変数の `Self` が drop され `AudioConverterDispose` が走る)
+   - すべての SetProperty を通過したらローカル変数の `Self` を `Ok` で返す
+2. 追加テストは不要。既存の `encoder_new_rejects_invalid_bitrate` (`bitrate = Some(1_000)` で EncodeBitRate 段を失敗させる) が失敗パスをカバーしており、EncodeBitRate 段以外の SetProperty 段 (BitRateControlMode / CodecQuality / SoundQualityForVBR) は、enum のため無効値が構築不能 (BitRateControlMode / CodecQuality) か、範囲外値を渡しても失敗しない (SoundQualityForVBR) ため、公開 API から失敗を誘発できない。有効値では失敗しないことは既存テスト (`encoder_new_accepts_each_bitrate_control_mode` / `encoder_new_accepts_each_codec_quality`) で確認されている。
