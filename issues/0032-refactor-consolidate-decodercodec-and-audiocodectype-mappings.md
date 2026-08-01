@@ -5,55 +5,47 @@
 - Completed:
 - Model: Opus 4.7
 - Branch: feature/refactor-consolidate-codec-mappings
-- Polished:
+- Polished: 2026-07-31
 
 ## 目的
 
-`DecoderCodec::{format_id, format_flags, frames_per_packet}` (`src/lib.rs:642-676`) と `AudioCodecType::{format_id, format_flags, frames_per_packet}` (`src/codec_info.rs:44-82`) に同じ Audio Toolbox 定数への mapping が別実装で存在している状態を解消する。仕様変更時に片方だけ更新される事故を防ぎ、責務を対称化する。
+`DecoderCodec::{format_id, format_flags, frames_per_packet}` と `AudioCodecType::{format_id, format_flags, frames_per_packet}` に同じ Audio Toolbox 定数への mapping が別実装で存在している状態を解消する。あわせて `Encoder::new` の直書きも `AudioCodecType` 経由に統一する (責務の対称化)。仕様変更時に片方だけ更新される事故を防ぐ。
 
 ## 優先度根拠
 
-Medium とする。動作は正しく mapping も現時点で一致しているが、責務の重複は保守負担を増やすことが確実。`EncoderCodec` にはさらに mapping メソッドが無く `Encoder::new` の match に直書きされているため、責務の非対称も同時に是正できる余地がある。
+Medium とする。動作は正しく mapping も現時点で一致しているが、責務の重複は保守負担を増やすことが確実。`EncoderCodec` には mapping メソッドが無く `Encoder::new` の match に直書きされているため、責務の非対称も本 issue で是正する。
 
 ## 現状
 
-- `DecoderCodec::format_id` (`src/lib.rs:645-651`) は `kAudioFormatMPEG4AAC` / `kAudioFormatMPEGLayer3` / `kAudioFormatOpus` を返す。
-- `AudioCodecType::format_id` (`src/codec_info.rs:44-56`) は同じ 3 種を含む全 9 種を返す。
-- `format_flags` / `frames_per_packet` も同様の重複。
-- `EncoderCodec` は `AacLc` のみを持ち、`Encoder::new` (`src/lib.rs:306-321`) の match アームで mapping が直書きされている。
+- `src/lib.rs` の `DecoderCodec::format_id` は `kAudioFormatMPEG4AAC` / `kAudioFormatMPEGLayer3` / `kAudioFormatOpus` を返す。
+- `src/codec_info.rs` の `AudioCodecType::format_id` は 9 種すべてに値があり、うち 3 種 (`AacLc` / `Mp3` / `Opus`) が `DecoderCodec` と重複している。
+- `format_flags` / `frames_per_packet` も同様の重複 (`AacLc => kMPEG4Object_AAC_LC` / `_ => 0`、`AacLc => 1024` / `Mp3 => 1152` / `Opus => 0`)。
+- `EncoderCodec` は `AacLc` のみを持ち、`Encoder::new` の match アームで mapping (`kAudioFormatMPEG4AAC` / `kMPEG4Object_AAC_LC` / 1024) が直書きされている。
 
 ## 完了条件
 
-- mapping が 1 箇所 (`AudioCodecType` もしくは内部専用のヘルパー) に集約される。
-- `DecoderCodec` / `EncoderCodec` から一次ソースを引くようになる。
-- 既存の全テストが引き続きパスする。
+1. mapping が `AudioCodecType` に一元化される (`grep -n "sys::kAudioFormatMPEG4AAC\|sys::kAudioFormatMPEGLayer3\|sys::kAudioFormatOpus\|sys::kMPEG4Object" src/lib.rs` が 0 件。`kAudioFormatLinearPCM` 等の PCM フォーマット定数は対象外で残る)。
+2. `DecoderCodec::{format_id, format_flags, frames_per_packet}` が削除される。
+3. `Decoder::new` / `Encoder::new` が `AudioCodecType` 経由で mapping を引く。
+4. 既存の全テストが引き続きパスする (`cargo test --workspace -- --test-threads=1` が成功する)。
+5. `src/lib.rs` の doc comment に Audio Toolbox 定数名 (`kAudioFormat*` / `kMPEG4Object*`) が残らない (手順 7 の完了確認)。
+6. `CHANGES.md` の develop / `### misc` に [UPDATE] として追記され、追記エントリに issue 番号・issue ファイル名が含まれない。エントリは shiguredo-changelog スキルのフォーマット (担当者行 `- @ユーザー名` を含む) に従う。
 
 ## 解決方法
 
-以下の 2 案を検討する。
+`AudioCodecType` に一元化する (案 A で確定。内部ヘルパー案 (案 B) は `DecoderCodec` → `AudioCodecType` の変換が結局必要で実質差が小さく、`AudioCodecType` が一次ソースの関係が明確な案 A を採る)。
 
-### 案 A: AudioCodecType に一元化 (推奨)
+1. `AudioCodecType::{format_id, format_flags, frames_per_packet}` を `pub(crate) fn format_id(self) -> u32` / `pub(crate) fn format_flags(self) -> u32` / `pub(crate) fn frames_per_packet(self) -> u32` に変更する (現状は module 内 private のため `Decoder::new` / `Encoder::new` から呼べない)。
+2. `DecoderCodec::to_audio_codec_type` を追加する (`pub(crate) fn to_audio_codec_type(self) -> AudioCodecType`。match で `AacLc => AudioCodecType::AacLc` / `Mp3 => AudioCodecType::Mp3` / `Opus => AudioCodecType::Opus` を対応させる)。
+3. `Decoder::new` を書き換えて、`to_audio_codec_type()` 経由で `AudioCodecType` の mapping を引く (`mSampleRate` / `mChannelsPerFrame` は config から、`mBitsPerChannel` / `mBytesPerPacket` は固定値 0 のまま)。
+4. `DecoderCodec::{format_id, format_flags, frames_per_packet}` を削除する。
+5. `EncoderCodec::to_audio_codec_type` を新設の impl ブロックとして追加する (`#[cfg(target_os = "macos")]` を付ける。既存の `DecoderCodec` の impl と同様。`pub(crate) fn to_audio_codec_type(self) -> AudioCodecType` で `AacLc => AudioCodecType::AacLc` の 1 対 1 対応)。
+6. `Encoder::new` を書き換える。`mFormatID` / `mFormatFlags` / `mFramesPerPacket` の 3 フィールドは `AudioCodecType` 経由で引く。`mSampleRate` / `mChannelsPerFrame` は config から、`mBitsPerChannel` / `mBytesPerPacket` は固定値 0 を設定する。match アーム内の Table 2-6 参照コメントは codec_info.rs 側 (mapping の一次ソース) へ移動する。
+7. `DecoderCodec` / `EncoderCodec` のバリアント doc comment に記載された mapping 定数 (例: 「mFormatID = kAudioFormatMPEG4AAC ...」) を「mapping は `AudioCodecType` に定義される」旨の参照に書き換える (doc comment が 3 つ目の情報源になるのを防ぐ)。書き換え対象は mapping 定数のみで、「1 パケットあたり 1024 フレーム固定」等の仕様情報は残す (仕様情報を一元化する場合は codec_info.rs 側のバリアント doc にも同様に記載する)。
+8. 最後に `cargo test --workspace -- --test-threads=1` / `cargo fmt --all --check` / `cargo clippy --workspace -- -D warnings` で確認する (手順 2-4 / 5-6 は変換の追加・使用・旧 mapping の削除を同一コミットにし、中間状態で dead_code 警告が CI を落とさないようにする)。
 
-- `DecoderCodec` から対応する `AudioCodecType` を返す変換関数を用意する (`fn to_audio_codec_type(self) -> AudioCodecType`)。
-- `Decoder::new` の中で `DecoderCodec` から `AudioCodecType` に変換して mapping を引く。
-- `EncoderCodec::AacLc` にも同様の変換を追加し、`Encoder::new` から mapping を引くように書き換える。
-- `DecoderCodec::{format_id, format_flags, frames_per_packet}` を削除する。
+`AudioCodecType` の probe 対象外バリアント (`AacHe` / `AacHeV2` / `AacLd` / `AacEld` / `Flac` / `Alac`。コード上は `format_id` 等の match で使用されるが probe では構築されない) の扱いは、issue 0033 の解決方法 4 と同様に別 issue で再確認する (両 issue とも同じ懸念を持つため、0032 / 0033 のいずれか先に実施された側で別 issue を立てる)。
 
-### 案 B: 内部専用ヘルパー
+issue 0033 と同ファイル (`src/codec_info.rs`) を編集するため、マージ順・コンフリクト対応に注意する。issue 0037 は `tests/test_codec_info.rs` のみを編集するため直接のコンフリクトはない。テストは公開 API のみを使用するため issue 0018 (テスト移設) との順序依存はない。`tests/include/helpers.rs` の `AAC_FRAMES_PER_PACKET` 等のフレーム数の複製はテスト用定数のため対象外。CHANGES.md の develop / `### misc` に同時期に追記する他 issue とは、マージ時にコンフリクトした場合は develop の最新を取り込んで解決する。
 
-- `src/codec_info.rs` (もしくは新規モジュール) に crate 内部専用の `pub(crate) fn format_id_for(codec: AudioCodecType) -> u32` を切り出す。
-- `AudioCodecType::format_id` はこの内部ヘルパーを呼ぶだけの薄いラッパーになる。
-- `DecoderCodec::format_id` も同じ内部ヘルパーを呼ぶ。
-
-案 A のほうが「AudioCodecType が一次ソース」の関係が明確になる。
-
-作業は以下の順で進める。
-
-1. `DecoderCodec::to_audio_codec_type()` を追加する。
-2. `Decoder::new` を書き換えて `AudioCodecType` 経由で mapping を引く。
-3. `DecoderCodec::{format_id, format_flags, frames_per_packet}` を削除する。
-4. `EncoderCodec::to_audio_codec_type()` を追加する。
-5. `Encoder::new` を書き換えて mapping を `AudioCodecType` 経由で引く (AAC-LC の場合の `mBytesPerPacket` などのコーデック固有設定は別途 match で扱う)。
-6. 既存テストが通ることを確認する。
-
-なお、`AudioCodecType` の未使用バリアントは別 issue で扱う (関連する判断)。
+`CHANGES.md` の追記エントリは shiguredo-changelog スキルを参照して書く (例: `- [UPDATE] コーデックの format mapping を AudioCodecType に一元化する`)。
