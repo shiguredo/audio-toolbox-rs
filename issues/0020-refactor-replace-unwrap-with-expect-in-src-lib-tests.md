@@ -5,7 +5,7 @@
 - Completed:
 - Model: Opus 4.7
 - Branch: feature/refactor-replace-unwrap-with-expect
-- Polished:
+- Polished: 2026-07-31
 
 ## 目的
 
