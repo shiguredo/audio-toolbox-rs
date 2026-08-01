@@ -4,45 +4,46 @@
 - Created: 2026-07-21
 - Completed:
 - Model: Opus 4.7
-- Branch: feature/refactor-remove-issue-references-from-docs
-- Polished:
+- Branch: feature/update-remove-issue-references-from-docs
+- Polished: 2026-07-31
 
 ## 目的
 
-shiguredo-issues 規約は issue 番号を書いてよい場所を `issues/` 配下・`SEQUENCE`・git コミットメッセージ・GitHub の PR/Issue 本文に限定し、リポジトリに残るドキュメント類 (README / CHANGES / SKILL / 設計書) に issue 番号を残すことを明示的に禁じている。現状 `CHANGES.md` と `SKILL.md` にこれに反する記述があるため除去する。
+shiguredo-issues 規約は issue 番号を書いてよい場所を `issues/` 配下のファイル名・`issues/SEQUENCE` ファイル・git コミットメッセージ・GitHub の PR 本文 / PR コメント / GitHub Issues コメントに限定し、リポジトリに残るドキュメント類 (README / docs / 設計書など)・ソースコード・`CHANGES.md` に issue 番号や issue への言及を書くことを禁じている。現状 `CHANGES.md` と `SKILL.md` にこれに反する記述があるため除去する。
 
 ## 優先度根拠
 
-Medium とする。動作影響はないが、shiguredo-issues 規約の必守項目に反しているため見過ごせない。CHANGES.md の記述は次回リリース時に露出する可能性があるので、issue 0021 (CHANGES.md 更新) と同時期に対応するのが自然。
+Medium とする。動作影響はないが、shiguredo-issues 規約の必守項目に反しているため見過ごせない。CHANGES.md の該当記述はリリース済みの 2026.1.0 セクションに既に載っており、issue 0027 の include 変更後は crates.io 配布物にも含まれるため、本 issue は 0027 より先に (または同一リリース内で) 完了させる。issue 0021 (CHANGES.md の develop セクション更新) とは対象セクションが異なるため順序は問わない。
 
 ## 現状
 
-- `CHANGES.md:87` の `## 2026.1.0 / ### misc` に以下の記述がある。
+- `CHANGES.md` の `## 2026.1.0 / ### misc` の [UPDATE] `DECODE_BUF_FRAMES` コメント更新エントリの下位項目に以下の記述がある (issue ファイル名を含み、規約違反)。
   ```
   `issues/0002-investigate-decoder-output-buffer-vs-codec-limits.md` に調査内容を追記する
   ```
-  issue ファイル名を含んでおり、規約違反。
-- `skills/shiguredo-audio-toolbox/SKILL.md:240` の `Decoder::decode の 1 パケット制約` 節に以下の記述がある。
+  なお、0002 の調査は完了しており調査内容は `issues/closed/0002-*` に記録済み (2026-04-01) で、この一文だけがリリース済みセクションに残っている。
+- `skills/shiguredo-audio-toolbox/SKILL.md` の `Decoder::decode` の 1 パケット制約節に以下の記述がある (issue 番号 `0012` と GitHub PR リンクを含み、規約違反)。
   ```
   これは過去にあったバグ ([0012 で修正済み](https://github.com/shiguredo/audio-toolbox-rs/pull/4)) への対策。
   ```
-  issue 番号 (`0012`) と GitHub PR リンクを含んでおり、規約違反。
 
 ## 完了条件
 
-- `CHANGES.md:87` から issue ファイル名参照が除去される (該当項目そのものを削除するか、issue ファイル名を含まない散文に書き換える)。
-- `SKILL.md:240` から issue 番号 / GitHub PR リンクが除去される (「過去にあったバグへの対策」として設計背景を issue 番号なしで残す)。
-- `CHANGES.md` / `SKILL.md` の他の箇所にも同種の記述が無いことを grep 等で確認する。
+- `CHANGES.md` から上記 1 行 (issue ファイル名を含む記述) が削除される。エントリ本体 ([UPDATE] `DECODE_BUF_FRAMES` コメント更新の記述と担当者行) は残す。
+- `SKILL.md` の上記文から issue 番号 / GitHub PR リンクが除去され、「過去にあったバグへの対策」として設計背景が issue 番号なしで残る。
+- `issues/` と `.git/` を除くリポジトリ全体 (CHANGES.md / SKILL.md / ソースコード・コメント・テスト・docstring・README 等のドキュメント) に issue 番号 / issue ファイル名 / PR リンクの記述が無いことを、解決方法に示す grep パターンで確認する (検出された場合は本 issue の範囲に含めて除去する)。
+- issue 番号 / issue ファイル名を新規に含めない。
 
 ## 解決方法
 
-`CHANGES.md:87` の該当エントリは、2026.1.0 は既にリリース済みだが遡って以下のいずれかに書き換える:
-
-- 該当エントリ自体を削除する (`DECODE_BUF_FRAMES` のコメントを RFC 6716 §2.1.4 に基づいて明示する内容は残す)。
-- または「調査内容を issue に追記する」の一文を削除し、コメント更新の事実だけを残す。
-
-`SKILL.md:240` は以下のように書き換える (issue 番号なし):
-
-- 「これは同一の AudioConverterFillComplexBuffer 呼び出し内で同じパケットが複数回コールバックに渡される Apple 側実装の挙動への対策。」
-
-grep でリポジトリ全体を再スキャンし、他に issue 番号 / issue ファイル名 / PR リンクを含む記述が残っていないかも確認する。ソースコード本体・docstring・コメント・テスト名・テストコメント・その他ドキュメントも同時にチェックする。
+- `CHANGES.md` の該当 1 行のみを削除する。「調査内容を追記する」を散文に書き換える案は、規約が issue 番号だけでなく issue への言及そのものを書くことを禁じているため採らない。
+- `SKILL.md` の該当文を以下のように書き換える (前段の「…制御している」の文はそのまま。事実関係は `issues/closed/0012-*` の記録に基づく):
+  ```
+  これは過去に、コールバックが同じパケットを複数回提供していたバグへの対策。
+  ```
+- issue 0014 が `SKILL.md` の同節 (1 パケット制約) にエラー時挙動の追記を行う予定のため、0014 を先に実施し、本 issue は 0014 の追記後に着手する。0014 の追記文は残し、issue 参照を含む文のみを書き換える。なお issue 0016 は「利用上の注意」セクションの別節への新規追加であり、本 issue の対象文の特定には影響しない。
+- grep でリポジトリ全体 (`issues/` と `.git/` を除く。隠しファイルも対象) をスキャンする。パターン例:
+  ```
+  rg -n "issues/[0-9]{4,}|github\.com/[^ )]+/(pull|issues)/|#[0-9]+|0[0-9]{3,}" --hidden --glob '!issues/**' --glob '!.git/**' --glob '!Cargo.lock'
+  ```
+  examples/sine_to_mp4.rs のビット列コメント (00010 等)・Cargo.lock の checksum・`.github/workflows/*.yml` の commit SHA ピンは issue 番号と無関係のため目視で除外する。検出された場合は本 issue の範囲に含めて除去する。
