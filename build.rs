@@ -78,6 +78,15 @@ fn main() {
         // Audio Toolbox 側のコメントが誤ってテスト対象と認識されてしまいエラーとなることがあるので、
         // コメントは生成しないようにしている。
         .generate_comments(false)
+        // AudioToolbox.h 経由で string.h 等の libc 関数も取り込まれるが、本クレートでは未使用。
+        // Darwin では size_t が unsigned long としてバインドされ、Rust 標準ライブラリが期待する
+        // usize シグネチャと型が一致せず suspicious-runtime-symbol-definitions で失敗するため除外する。
+        .blocklist_function("memcmp")
+        .blocklist_function("memcpy")
+        .blocklist_function("memmove")
+        .blocklist_function("memset")
+        .blocklist_function("strlen")
+        .blocklist_function("bcmp")
         .generate()
         .expect("failed to generate bindings")
         .write_to_file(output_bindings_path)
