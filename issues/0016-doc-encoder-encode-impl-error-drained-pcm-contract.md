@@ -5,7 +5,7 @@
 - Completed:
 - Model: Opus 4.7
 - Branch: feature/update-encoder-encode-impl-error-drained-pcm-contract
-- Polished: 2026-07-31
+- Polished: 2026-09-04
 
 ## 目的
 
@@ -58,7 +58,7 @@ Decoder 側 (issue 0014) と同じ「エラー後の状態一貫性」の問題�
 
 契約の明文化 (案 A) に確定する。実装は変更しない。
 
-- `Encoder::encode` / `Encoder::finish` の rustdoc と `skills/shiguredo-audio-toolbox/SKILL.md` に「`Err` を返した場合、これまでの入力の一部が消費されている可能性があり、消費サンプル数は呼び出し側から観測できない。以降 `Encoder` は再利用してはならない」旨を明記する。
+- `Encoder::encode` / `Encoder::finish` の rustdoc と `skills/shiguredo-audio-toolbox/SKILL.md` に「`Err` を返した場合、これまでの入力の一部がコールバック内で消費されている可能性があり、消費サンプル数は呼び出し側から観測できない。以降この `Encoder` インスタンスを利用しないこと」旨を明記する。
 - 実装の変更 (案 B: poisoned フラグによる永久 Err 化) は採用しない。理由は以下のとおり:
   - `Encoder::next_frame` は `Result` ではなく `Option<EncodedFrame>` を返すため、`next_frame` ではエラーを通知できない。全メソッドでエラーを返す完全な永久 Err 化にはシグネチャの破壊的変更が必要になる
   - `encode_impl` の Err を公開 API から誘発する手段がなく、回帰テストを書けない
@@ -66,7 +66,7 @@ Decoder 側 (issue 0014) と同じ「エラー後の状態一貫性」の問題�
 
 ## 完了条件
 
-- `Encoder::encode` / `Encoder::finish` の rustdoc と `skills/shiguredo-audio-toolbox/SKILL.md` に「Err を返した場合、これまでの入力の一部が消費されている可能性があり、消費サンプル数は呼び出し側から観測できない。以降 `Encoder` は再利用してはならない」旨が明記される。
+- `Encoder::encode` / `Encoder::finish` の rustdoc と `skills/shiguredo-audio-toolbox/SKILL.md` に「`Err` を返した場合、これまでの入力の一部がコールバック内で消費されている可能性があり、消費サンプル数は呼び出し側から観測できない。以降この `Encoder` インスタンスを利用しないこと」旨が明記される。
 - 明記された内容が実装の挙動と一致していることをレビューで確認できる。
 - `CHANGES.md` の develop / `### misc` に [UPDATE] として追記する (rustdoc の変更分のみ。SKILL.md の変更分は `.md` のため変更履歴に反映しない)。
 
@@ -75,7 +75,7 @@ Decoder 側 (issue 0014) と同じ「エラー後の状態一貫性」の問題�
 案 A として以下を書き加える。契約文言は完了条件に記載の文言をそのまま使用する。
 
 - `Encoder::encode` の rustdoc:
-  - 「エラーが返った場合、コールバック内部で PCM の一部が既に消費されている可能性があり、消費サンプル数は呼び出し側から観測できない。以降この `Encoder` インスタンスを利用しないこと」
+  - 「`Err` を返した場合、これまでの入力の一部がコールバック内で消費されている可能性があり、消費サンプル数は呼び出し側から観測できない。以降この `Encoder` インスタンスを利用しないこと」
 - `Encoder::finish` の rustdoc:
   - 同上
 - `skills/shiguredo-audio-toolbox/SKILL.md`:
