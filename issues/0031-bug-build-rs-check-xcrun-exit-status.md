@@ -5,7 +5,7 @@
 - Completed:
 - Model: Opus 4.7
 - Branch: feature/fix-build-rs-check-xcrun-status
-- Polished: 2026-07-31
+- Polished: 2026-09-04
 
 ## 目的
 
@@ -48,7 +48,7 @@ let sdk_dir = PathBuf::from(
 4. `xcrun` が成功したが空の SDK パスを返した場合も panic する (「`xcrun --show-sdk-path` returned empty path」)。
 5. `xcrun` の起動自体に失敗した場合 (PATH に存在しない場合) も、spawn 失敗メッセージに「Is Xcode Command Line Tools installed?」のヒントが含まれる。
 6. 既存の macOS ビルドが引き続き成功する (`cargo check --workspace` と `cargo test --workspace -- --test-threads=1` が成功する)。
-7. `CHANGES.md` の develop 直下 (### misc ではなく) に [FIX] として追記され、追記エントリに issue 番号・issue ファイル名が含まれない。エントリは shiguredo-changelog スキルのフォーマット (担当者行 `- @ユーザー名` を含む) に従う。
+7. `CHANGES.md` の develop 直下 (### misc ではなく) に [FIX] として追記され、追記エントリに issue 番号・issue ファイル名が含まれない。エントリは shiguredo-changelog スキルのフォーマット (担当者行 `  - @ユーザー名` を含む) に従う。
 
 ## 検証方法
 
