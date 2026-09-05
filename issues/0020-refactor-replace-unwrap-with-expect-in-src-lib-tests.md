@@ -2,7 +2,7 @@
 
 - Priority: Medium
 - Created: 2026-07-21
-- Completed:
+- Completed: 2026-09-05
 - Model: Opus 4.7
 - Branch: feature/refactor-replace-unwrap-with-expect
 - Polished: 2026-07-31
@@ -46,15 +46,14 @@ find が None を返した場合、`.unwrap()` は情報量のないパニック
 
 ## 解決方法
 
-以下のように置換する。
+本 issue は作業不要と判断し、closed とする。本 issue が対象とするコードは、open issue である issues/0018-refactor-consolidate-duplicate-tests-into-integration-tests.md の作業で削除されるためである。
 
-```rust
-let aac_lc = codecs
-    .iter()
-    .find(|c| c.codec == AudioCodecType::AacLc)
-    .expect("AAC-LC エントリが必ず存在するはず");
-```
+根拠:
 
-MP3 / Opus も同様に日本語メッセージで置き換える。
+- 実ファイル照合で、`src/lib.rs` の `#[cfg(test)] mod tests` 内の `test_supported_codecs` に、本 issue が列挙する `.unwrap()` 3 箇所（1167 / 1177 / 1185 行目）が実在することを確認した。
+- issues/0018 の完了条件は「`src/lib.rs::tests` モジュールが削除される」、解決方法 5 は「`mod tests` 全体を削除する」であり、`test_supported_codecs` は削除対象に含まれる。
+- issues/0018 の解決方法 7 には「issue 0020 は、対象コードが本 issue で削除される `test_supported_codecs` 内にあり、0020 側も「0018 を先に片付ければ本 issue はクローズできる」と明記しているため、本 issue では作業を実施しない。本 issue の完了をもって 0020 は不要となりクローズする」と明記されている。
+- 本 issue 側も優先度根拠・解決方法に「0018 で `src/lib.rs::tests` 全体を削除する場合は本 issue は不要になる」「0018 を先に片付ければ本 issue はクローズできる」と記述しており、両 issue で方針が一致している。
+- `tests/` 配下（tests/test_*.rs）に `.unwrap()` は存在せず（`unwrap_err` / `unwrap_or_else` は本 issue の対象外）、issues/0018 の完了後、本 issue が対象とする `.unwrap()` が残る箇所はない。
 
-issue 0018 で `src/lib.rs::tests` を削除する場合は、本 issue は 0018 に統合されて消化される。作業順序としては 0018 を先に片付ければ本 issue はクローズできる。
+したがって、`.expect("MESSAGE")` への置換作業は対象コードの削除により実施空間が消えるため、issues/0018 の実装をもって本 issue は事実上対応済みとなる。万一 issues/0018 の方針が変更され `src/lib.rs::tests` が存続する場合のみ、本 issue を再検討すること。
