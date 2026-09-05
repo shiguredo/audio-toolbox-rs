@@ -2,7 +2,7 @@
 
 - Priority: Medium
 - Created: 2026-07-21
-- Completed:
+- Completed: 2026-09-05
 - Model: Opus 4.7
 - Branch: feature/refactor-move-tests-helpers-to-mod
 - Polished: 2026-07-31
@@ -47,3 +47,10 @@ shiguredo-rust 規約はテスト補助を `tests/helpers/` に置くことと�
 issue 0018 (テスト移設) / issue 0024 (`tests/test_decoder.rs` 冒頭コメント) / issue 0019 (テストメッセージ日本語化) が `tests/` 配下のファイルに触れるため、着手時に現状を確認し、マージ時にコンフリクトした場合は develop の最新を取り込んで解決する。issue 0018 実施後は `test_decoder.rs` でも `encoder_config` を使用するため、未使用ヘルパーが減って `#[expect(dead_code)]` が `unfulfilled_lint_expectations` になった場合は、該当テストファイルの expect を撤去する。
 
 `CHANGES.md` の追記エントリは shiguredo-changelog スキルを参照して書く (例: `- [UPDATE] テスト共有ヘルパーを tests/helpers/ に移し include! から mod 方式に切り替える`)。
+
+**本 issue は対応せず closed にする**。`issues/0035-refactor-move-tests-include-helpers-to-tests-helpers-rs.md` (open, 2026-09-05 作成) と実質同一であり、後継版が本 issue の計画を置き換えているため。
+
+- 重複の根拠: 同一 SEQ (0035)・同一目的 (`tests/include/helpers.rs` を include! から mod 方式に切り替える)・同一 Branch (`feature/refactor-move-tests-helpers-to-mod`)・本文の構成も同一で、違いは配置先の指定のみ。
+- 陳腐化の根拠: 後継版は 2026-09-05 に open され `Polished: 2026-09-05` (当日磨き済み)。後継版の「`tests/helpers/mod.rs` (ディレクトリ方式) を採らない理由」は、shiguredo-rust 規約 (スキルの「`mod.rs` を使わないこと」、`src/` に限らず `tests/` や `examples/` でも同様) を引用し、単一ファイル `tests/helpers.rs` を採るとしている。本 issue の `tests/helpers/mod.rs` 案は同規約に反するため、このまま実装すると誤った変更が入る。
+- 実測 (2026-09-05): `tests/include/helpers.rs` は存在しており `include!("include/helpers.rs")` 方式が維持されている (`tests/test_encoder.rs` / `tests/test_decoder.rs`)。`skills/shiguredo-audio-toolbox/SKILL.md` のソースファイル構成表にも `tests/include/helpers.rs` 行が残っている。つまり 0035 相当の実装は未着手であり、実施すべき後継は `issues/0035-refactor-move-tests-include-helpers-to-tests-helpers-rs.md` の 1 件に集約される。
+- `Polished:` は更新しない (closed への遷移であり、auto-resolve 対象への誤昇格を避ける)。
