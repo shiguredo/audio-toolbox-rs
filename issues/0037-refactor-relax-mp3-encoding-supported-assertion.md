@@ -5,7 +5,7 @@
 - Completed:
 - Model: Opus 4.7
 - Branch: feature/refactor-relax-mp3-encoding-supported-assertion
-- Polished: 2026-07-31
+- Polished: 2026-09-05
 
 ## 目的
 
@@ -44,7 +44,12 @@ fn supported_codecs_mp3_decode_only_typically() {
 
 ## 解決方法
 
-`assert!(!mp3.encoding.supported)` を削除し、テスト名を `supported_codecs_mp3_decoding_supported` に変更する (案 A で確定。案 B の不変条件テストは式の複雑さに対して効果が薄く、将来 macOS が MP3 エンコード対応した場合にビットレート制御モードが空になる経路 (converter 作成失敗) が残るため不採用)。
+`assert!(!mp3.encoding.supported)` の扱いは次の 2 案で比較した。
+
+- 案 A: `assert!(!mp3.encoding.supported)` を削除して decode 側の検証のみを残し、テスト名を `supported_codecs_mp3_decoding_supported` に変更する。
+- 案 B: エンコード対応時の不変条件 (`mp3.encoding.supported` が真なら `bitrate_control_modes` が空でない等) を検証するテストに置き換える。
+
+案 A で確定。案 B は不変条件の式が複雑になるうえ、将来 macOS が MP3 エンコード対応した場合でも AudioConverter 作成失敗 (src/codec_info.rs の `query_bitrate_control_modes` は作成失敗時に空リストを返す) により `bitrate_control_modes` が空になる経路が残るため不採用。
 
 1. `tests/test_codec_info.rs` の `supported_codecs_mp3_decode_only_typically` の `assert!(!mp3.encoding.supported)` を削除する。
 2. テスト名を `supported_codecs_mp3_decoding_supported` に変更する。
