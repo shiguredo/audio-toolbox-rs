@@ -5,7 +5,7 @@
 - Completed:
 - Model: Opus 4.7
 - Branch: feature/add-callback-failure-path-tests
-- Polished: 2026-07-31
+- Polished: 2026-09-05
 
 ## 目的
 
@@ -23,7 +23,7 @@ Medium とする。現状のテストは正常系の encode / decode 経由で�
 - `Encoder::callback` の `mData == NULL` 経路 (scratch_buf 提供)
 - `Decoder::callback` の null チェック
 - `Decoder::callback` の `packet_provided_in_this_fill` 分岐 (2 回目以降は `K_NO_MORE_INPUT`)
-- `Decoder::callback` の `out_data_packet_description` 非 null 経路 (`packet_desc` 設定と `*out_data_packet_description` の書き込み。null 経路は `decode_impl` が常に `null_mut()` を渡すため既に間接カバー済み)
+- `Decoder::callback` の `out_data_packet_description` 経路: 非 null の場合に `packet_desc` を設定して `*out_data_packet_description` に書き込み、null の場合は何も書き込まない。コールバックへ渡される `out_data_packet_description` の null 可否は AudioConverter 側が決める (AudioConverter.h の `AudioConverterComplexInputDataProc` の記述「If non-null, on exit, the callback is expected to fill this in...」)。入力が圧縮フォーマット (パケット形式) のデコードでは非 null が渡されるため、非 null 経路は通常の decode で間接的に実行される。null 経路はパケット記述が不要な入力 (PCM 等) の契約であり、現状のテストでは到達しない。なお `decode_impl` が `AudioConverterFillComplexBuffer` の `outPacketDescription` (出力側パケット記述) に渡す `null_mut()` はコールバックの `out_data_packet_description` 引数とは別パラメータであり、カバー状況の根拠にはならない
 
 - `Encoder::callback` / `Decoder::callback` のデータ不足経路 (`K_NO_MORE_INPUT` 返却): 正常系の encode / decode 経由で間接カバー済みのため対象外
 
@@ -40,7 +40,7 @@ Medium とする。現状のテストは正常系の encode / decode 経由で�
 
 ## 完了条件
 
-1. 上記の対象パス (Encoder / Decoder の先頭 null チェック / `mData == NULL` scratch_buf / `packet_provided_in_this_fill` / `out_data_packet_description` 非 null 経路) に対応する回帰テストが `src/lib.rs` 内の新規 `#[cfg(test)] mod callback_tests` に追加される (issue 0018 実施後。`mod tests` を前提としない)。
+1. 上記の対象パス (Encoder / Decoder の先頭 null チェック / `mData == NULL` scratch_buf / `packet_provided_in_this_fill` / `out_data_packet_description` の非 null・null 両経路) に対応する回帰テストが `src/lib.rs` 内の新規 `#[cfg(test)] mod callback_tests` に追加される (issue 0018 実施後。`mod tests` を前提としない)。
 2. `cargo test --workspace -- --test-threads=1` で新規テストがパスし、既存テストも引き続きパスする (`--test-threads=1` は ci.yml と同一の直列実行で検証するため。要否は issue 0038 の結論を反映する)。`cargo fmt --all --check` / `cargo clippy --all-targets -- -D warnings` が成功する (`--all-targets` はテストターゲットも検証するため意図的に使用する。ci.yml の clippy はテストターゲットを含まない)。
 3. テストは日本語コメント + 日本語 assert メッセージ (AGENTS.md 準拠)。英語の assert メッセージが残っていないことを grep で確認する (issue 0019 と同様。0019 の例外規定は callback が `Error` を返さず `i32` を返すため本 issue では発生しない)。テストコメント・テスト名に issue 番号や issue への言及を含めないこと (shiguredo-rust 規約)。
 4. `CHANGES.md` の develop / `### misc` に [UPDATE] として追記され、追記エントリに issue 番号・issue ファイル名が含まれない (issue 0022 の管轄)。エントリは shiguredo-changelog スキルのフォーマット (担当者行 `- @ユーザー名` を含む) に従う。
@@ -51,7 +51,7 @@ Medium とする。現状のテストは正常系の encode / decode 経由で�
 
 1. `src/lib.rs` 内に新規 `#[cfg(test)] mod callback_tests` を追加する (issue 0018 実施後。`mod tests` を前提としない)。
 2. `Encoder::callback` を直接呼び、null チェック / `mData == NULL` scratch_buf の各パスを確認する (unsafe 前提でテストを書く)。
-3. `Decoder::callback` を直接呼び、null チェック / `packet_provided_in_this_fill` / `out_data_packet_description` 非 null 経路を確認する。
+3. `Decoder::callback` を直接呼び、null チェック / `packet_provided_in_this_fill` / `out_data_packet_description` の非 null 経路 (`packet_desc` の設定と `*out_data_packet_description` への書き込み) と null 経路 (書き込みスキップ) を確認する。
 4. 直接呼び出しは失敗分岐のロジック検証のみで、AudioConverter 経由の ABI 呼び出し規約そのものは検証しない (ABI 経路は `Some(Self::callback)` のシグネチャ一致をコンパイル時に強制し、既存の encode / decode 統合テストが間接カバーする)。
 5. 最後に `cargo test --workspace -- --test-threads=1` / `cargo fmt --all --check` / `cargo clippy --all-targets -- -D warnings` で確認する。
 
