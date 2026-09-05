@@ -5,7 +5,7 @@
 - Completed:
 - Model: Opus 4.7
 - Branch: feature/update-remove-issue-references-from-docs
-- Polished: 2026-07-31
+- Polished: 2026-09-05
 
 ## 目的
 
