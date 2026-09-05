@@ -5,7 +5,7 @@
 - Completed:
 - Model: Opus 4.7
 - Branch: feature/add-expose-error-fields
-- Polished: 2026-07-31
+- Polished: 2026-09-05
 
 ## 目的
 
@@ -68,4 +68,4 @@ README.md / SKILL.md の記述を実装と整合させ、SKILL.md の「`Error::
 
 `CHANGES.md` の追記エントリは shiguredo-changelog スキルを参照して書く (例: [ADD] `Error` の `status` / `function` フィールドを公開する)。
 
-issue 0034 (`Error::function` の命名一貫性) は本 issue の後に実施する (本 issue で公開方式が確定する)。0034 内の案 B 前提の記述 (優先度根拠の「アクセサ化される想定」や解決方法の「issue 0028 で `pub fn function()` を出す場合は」) と完了条件の「同一ブランチで扱うか判断する」は、本 issue の順序決定 (別ブランチ・後に実施) で確定したため成立しない。0034 の該当記述は 0034 の磨きで修正される。0034 実施時には、本 issue で追加したテストの `function` の assert (`== "Encoder::new(sample_rate)"` 等) も書式変更に合わせて更新対象となる。
+issue 0034 (`Error::function` の命名一貫性) は本 issue の後に別ブランチで実施する。0034 の優先度根拠・完了条件 2・解決方法 2 は、本 issue で `function` が pub フィールドとして公開され、実施順序が確定した後の記述になっている (「issue 0028 で pub フィールドとして公開される」「issue 0028 の後に別ブランチで実施する (0028 で確定済み)」)。0034 実施時には、本 issue で追加したテストの `function` の assert (`== "Encoder::new(sample_rate)"` 等) も書式変更に合わせて更新対象となる。
