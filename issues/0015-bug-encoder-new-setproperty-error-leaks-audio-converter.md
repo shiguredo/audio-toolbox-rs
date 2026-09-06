@@ -2,7 +2,7 @@
 
 - Priority: High
 - Created: 2026-07-21
-- Completed:
+- Completed: 2026-09-06
 - Model: Opus 4.7
 - Branch: feature/fix-encoder-new-setproperty-error-leaks-audio-converter
 - Polished: 2026-09-04
@@ -71,3 +71,10 @@ Ok(Self { converter, ... })  // ここに到達して初めて Drop が有効に
    - SetProperty の失敗時はそのまま `?` で早期 return する (ローカル変数の `Self` が drop され `AudioConverterDispose` が走る)
    - すべての SetProperty を通過したらローカル変数の `Self` を `Ok` で返す
 2. 追加テストは不要。既存の `encoder_new_rejects_invalid_bitrate` (`bitrate = Some(1_000)` で EncodeBitRate 段を失敗させる) が失敗パスをカバーしており、修正後のコードではどの SetProperty 段で失敗してもローカルの `Self` の drop によって同一の解放経路を通るため、この 1 つの失敗パスで機構を検証できる。EncodeBitRate 段以外の SetProperty 段 (BitRateControlMode / CodecQuality / SoundQualityForVBR) は、`bitrate_control_mode` / `codec_quality` が enum のため無効値を構築できず、`vbr_quality` (`Option<u32>`) だけは範囲外値を渡せるが、SoundQualityForVBR の範囲外値に対する失敗挙動は Apple 側の実装依存で本 issue では検証しない。有効値で失敗しないことは既存テスト (`encoder_new_accepts_each_bitrate_control_mode` / `encoder_new_accepts_each_codec_quality`) で確認されている。
+
+## 解決方法 (実績)
+
+- `src/lib.rs` の `Encoder::new` で `AudioConverterNew` 成功後に null 検査を行い、null 時は dispose せず `Error` を返す
+- `AudioConverterNew` 成功後に先に `Self` をローカル変数に組み立て、各 `AudioConverterSetProperty` をその `converter` に対して実行し、失敗時は `?` で早期 return して `Drop` で解放する RAII 構造にする
+- 追加テストなし。既存の `encoder_new_rejects_invalid_bitrate` 等が引き続きパスすることを確認する
+- `CHANGES.md` の develop に [FIX] として追記する
