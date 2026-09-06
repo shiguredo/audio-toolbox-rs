@@ -2,7 +2,7 @@
 
 - Priority: High
 - Created: 2026-07-21
-- Completed:
+- Completed: 2026-09-06
 - Model: Opus 4.7
 - Branch: feature/fix-decoder-decode-impl-error-bricks-decoder
 - Polished: 2026-09-04
@@ -91,3 +91,11 @@ if status != 0 && status != K_NO_MORE_INPUT {
 - `next_frame()` が Err を返すことを確認する
 - その直後に正常な AAC-LC パケットを `decode()` して成功することを確認する
 - さらに `next_frame()` を `Ok(None)` になるまでループし、PCM が取れることを確認する
+
+## 解決方法 (実績)
+
+- `src/lib.rs` の `Decoder::decode_impl` で `encoded_buf.clear()` をステータス検査の前に移動し、エラー時も入力バッファを消費済みとしてクリアする。新コメントで API が消費有無を通知しない旨と永久ブリック防止の方針を明記し、既存の K_NO_MORE_INPUT 判定コメントは保持する
+- `src/lib.rs` の `Decoder::decode` と `Decoder::next_frame` の rustdoc にエラー時も入力バッファがクリアされ新しいパケットから再開できる旨を追記する
+- `skills/shiguredo-audio-toolbox/SKILL.md` の `Decoder::decode` 説明と `Decoder::next_frame` フロー記述をエラー時もクリアされる順序に合わせて更新する
+- `tests/test_decoder.rs` に `decode_error_clears_input_buffer_and_recovers` を追加する。macOS 実機で単純なペイロード上書きや切り詰めは `Ok(None)` になり実エラーを誘発しないことを確認したため、4096 バイトの不正バイト列で実エラー (status=-50) を誘発し、直後の正常パケット受理と PCM 復帰を検証する
+- `CHANGES.md` の develop に [FIX] として追記する
