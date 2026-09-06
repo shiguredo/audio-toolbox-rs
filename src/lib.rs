@@ -323,6 +323,29 @@ impl Encoder {
             let mut converter = std::ptr::null_mut();
             let status = sys::AudioConverterNew(&input_format, &output_format, &mut converter);
             Error::check(status, "AudioConverterNew")?;
+            // AudioConverterNew が成功しても null が返る可能性に備える
+            //
+            // null に対する AudioConverterDispose の挙動は Apple ドキュメントに明記されていないため、
+            // null の場合は AudioConverterDispose を呼ばずにエラーを返す。
+            if converter.is_null() {
+                return Err(Error {
+                    status: sys::kAudio_ParamError,
+                    function: "AudioConverterNew",
+                });
+            }
+
+            // 先に Self を組み立てておく
+            //
+            // 以降の AudioConverterSetProperty が失敗して早期 return しても、
+            // ローカルの Self の Drop が AudioConverterDispose を呼ぶためリークしない。
+            let encoder = Self {
+                converter,
+                channels,
+                pcm_buf: Vec::new(),
+                encoded_frames: VecDeque::new(),
+                eos: false,
+                scratch_buf: Vec::new(),
+            };
 
             // ビットレート制御モード設定
             //
@@ -340,7 +363,7 @@ impl Encoder {
                     BitRateControlMode::Variable => sys::kAudioCodecBitRateControlMode_Variable,
                 };
                 let status = sys::AudioConverterSetProperty(
-                    converter,
+                    encoder.converter,
                     sys::kAudioCodecPropertyBitRateControlMode,
                     size_of::<u32>() as sys::UInt32,
                     (&value as *const u32).cast(),
@@ -351,7 +374,7 @@ impl Encoder {
             // ビットレート設定
             if let Some(bitrate) = config.bitrate {
                 let status = sys::AudioConverterSetProperty(
-                    converter,
+                    encoder.converter,
                     sys::kAudioConverterEncodeBitRate,
                     size_of::<u32>() as sys::UInt32,
                     (&bitrate as *const u32).cast(),
@@ -369,7 +392,7 @@ impl Encoder {
                     CodecQuality::Max => sys::kAudioConverterQuality_Max,
                 };
                 let status = sys::AudioConverterSetProperty(
-                    converter,
+                    encoder.converter,
                     sys::kAudioConverterCodecQuality,
                     size_of::<u32>() as sys::UInt32,
                     (&value as *const u32).cast(),
@@ -380,7 +403,7 @@ impl Encoder {
             // VBR 品質設定
             if let Some(vbr_quality) = config.vbr_quality {
                 let status = sys::AudioConverterSetProperty(
-                    converter,
+                    encoder.converter,
                     sys::kAudioCodecPropertySoundQualityForVBR,
                     size_of::<u32>() as sys::UInt32,
                     (&vbr_quality as *const u32).cast(),
@@ -388,14 +411,7 @@ impl Encoder {
                 Error::check(status, "AudioConverterSetProperty(SoundQualityForVBR)")?;
             }
 
-            Ok(Self {
-                converter,
-                channels,
-                pcm_buf: Vec::new(),
-                encoded_frames: VecDeque::new(),
-                eos: false,
-                scratch_buf: Vec::new(),
-            })
+            Ok(encoder)
         }
     }
 
