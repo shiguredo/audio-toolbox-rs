@@ -96,7 +96,6 @@
 - [UPDATE] `tests/test_decoder.rs` を単体テストのみとし、`proptest` を dev-dependencies から削除する
   - @voluntas
 - [UPDATE] `DECODE_BUF_FRAMES` のコメントを RFC 6716 §2.1.4 に基づき、Opus の理論上の最大フレーム数と定数の関係を明示する（RFC 8251 は参照デコーダ等の更新であり §2.1.4 の本文は変更しない旨を注記する）
-  - `issues/0002-investigate-decoder-output-buffer-vs-codec-limits.md` に調査内容を追記する
   - @voluntas
 - [ADD] 正弦波 PCM を AAC エンコードして MP4 に保存するサンプルを追加する
   - @voluntas
