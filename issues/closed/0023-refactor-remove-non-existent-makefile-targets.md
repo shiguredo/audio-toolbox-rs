@@ -2,7 +2,7 @@
 
 - Priority: Medium
 - Created: 2026-07-21
-- Completed:
+- Completed: 2026-09-06
 - Model: Opus 4.7
 - Branch: feature/refactor-remove-non-existent-makefile-targets
 - Polished: 2026-09-05
@@ -71,3 +71,10 @@ issue 0024 と同時期に対応する (変更対象が独立しているため�
 `CHANGES.md` の追記エントリは shiguredo-changelog スキルを参照して書く (例: [UPDATE] Makefile から実在しない pbt / fuzz ターゲットを削除する)。
 
 将来 Fuzz を導入する時点で `fuzz/` を用意して Makefile に追記し、PBT を導入する時点では dev-dependencies に proptest を追加してテスト内で利用する運用にする。導入計画があるなら別 issue として機能追加のカテゴリの issue を立てる。
+
+## 解決方法 (実績)
+
+- `Makefile` から `pbt` / `pbt-with-cover` / `fuzzing` / `fuzzing-list` ターゲットと対応コメントを削除する
+- `.PHONY` 宣言を `test cover check clippy fmt clean` に整理する
+- `CHANGES.md` の develop / `### misc` に [UPDATE] として追記する
+- `make test` / `make check` / `make clippy` / `make fmt` が成功することを確認する
