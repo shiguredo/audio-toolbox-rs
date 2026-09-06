@@ -19,6 +19,9 @@
 - [FIX] Decoder のデコードエラー時に以降の decode が受け付けられなくなる不具合を修正する
   - `AudioConverterFillComplexBuffer` がエラーを返した場合でも入力バッファをクリアし、次のパケットから再開できるようにする
   - @voluntas
+- [FIX] Encoder 生成時のプロパティ設定失敗で AudioConverter がリークする不具合を修正する
+  - `AudioConverterNew` 成功後に先に `Encoder` を組み立て、設定失敗時は `Encoder` の `Drop` で解放されるようにする
+  - @voluntas
 
 ### misc
 
