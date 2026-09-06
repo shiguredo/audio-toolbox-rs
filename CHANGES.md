@@ -22,6 +22,9 @@
 - [FIX] Encoder 生成時のプロパティ設定失敗で AudioConverter がリークする不具合を修正する
   - `AudioConverterNew` 成功後に先に `Encoder` を組み立て、設定失敗時は `Encoder` の `Drop` で解放されるようにする
   - @voluntas
+- [FIX] サンプルの進捗表示が既定の長さでは 1 度も出ない不具合を修正する
+  - 秒の繰り上がりで判定し 1 秒ごとに進捗を表示するようにする
+  - @voluntas
 
 ### misc
 

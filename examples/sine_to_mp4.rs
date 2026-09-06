@@ -170,9 +170,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // 1 秒ごとに進捗を表示する
-        if sample_offset.is_multiple_of(SAMPLE_RATE as usize) {
-            let sec = sample_offset / SAMPLE_RATE as usize;
-            println!("  {sec}/{duration_secs:.0}s encoded");
+        //
+        // chunk_samples (1024) と SAMPLE_RATE (48000) の最小公倍数は 384,000 サンプル (8 秒) のため、
+        // is_multiple_of では 1 秒ごとの表示にならない。秒の繰り上がり (cur_sec > prev_sec) で判定する。
+        let prev_sec = (sample_offset - chunk_samples) / SAMPLE_RATE as usize;
+        let cur_sec = sample_offset / SAMPLE_RATE as usize;
+        if cur_sec > prev_sec {
+            println!("  {cur_sec}/{duration_secs:.0}s encoded");
         }
     }
 
