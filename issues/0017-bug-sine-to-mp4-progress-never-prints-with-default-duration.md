@@ -2,7 +2,7 @@
 
 - Priority: High
 - Created: 2026-07-21
-- Completed:
+- Completed: 2026-09-06
 - Model: Opus 4.7
 - Branch: feature/fix-sine-to-mp4-progress-condition
 - Polished: 2026-09-04
@@ -57,3 +57,9 @@ if cur_sec > prev_sec {
 ```
 
 コメントで「chunk_samples (1024) と SAMPLE_RATE (48000) の lcm が 384,000 サンプル (8 秒) のため、is_multiple_of では 1 秒ごとの表示にならない。秒の繰り上がり (cur_sec > prev_sec) で判定する」旨を残す。
+
+## 解決方法 (実績)
+
+- `examples/sine_to_mp4.rs` の進捗判定を秒の繰り上がり (`cur_sec > prev_sec`) に変え、最小公倍数による表示欠落の理由をコメントに残す
+- `--duration 5` で 5 行、`--duration 10` で 10 行の進捗が出ることを実機で確認する
+- `CHANGES.md` の develop に [FIX] として追記する
