@@ -16,6 +16,9 @@
   - `finish()` 後かつ入力が空の場合は `AudioConverterFillComplexBuffer` を呼ばずに `Ok(None)` を早期リターンし、ストリーム終端を誤って通知することによる `-50` エラーを防ぐ
   - `tests/test_decoder.rs` に非無音の AAC-LC パケットを使った回帰テストを追加する
   - @voluntas
+- [FIX] Decoder のデコードエラー時に以降の decode が受け付けられなくなる不具合を修正する
+  - `AudioConverterFillComplexBuffer` がエラーを返した場合でも入力バッファをクリアし、次のパケットから再開できるようにする
+  - @voluntas
 
 ### misc
 

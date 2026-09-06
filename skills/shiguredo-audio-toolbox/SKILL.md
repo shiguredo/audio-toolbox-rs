@@ -66,7 +66,7 @@ Apple の [Audio Toolbox] を利用した音声エンコーダー / デコーダ
 
 `Decoder::new` は `input_sample_rate == 0` / `input_channels == 0` を `Error { status: -50, function: "Decoder::new(...)" }` で拒否する。出力サンプルレートは入力と同じ値 (リサンプリングなし)。出力チャンネル数はステレオ固定で、入力がモノラルの場合は AudioConverter が自動でアップミックスする。
 
-`Decoder::decode` は **1 回につき 1 パケット**を渡す API。前のパケットが `next_frame()` で消費されていない状態で再度 `decode` を呼ぶと `Error { status: -50, function: "Decoder::decode(previous packet not consumed)" }` を返す (連結による誤デコードを防ぐ)。ただし**空スライス `&[]` の `decode` は内部バッファを変更しないため**、続けて別の `decode` が可能。
+`Decoder::decode` は **1 回につき 1 パケット**を渡す API。前のパケットが `next_frame()` で消費されていない状態で再度 `decode` を呼ぶと `Error { status: -50, function: "Decoder::decode(previous packet not consumed)" }` を返す (連結による誤デコードを防ぐ)。ただし**空スライス `&[]` の `decode` は内部バッファを変更しないため**、続けて別の `decode` が可能。`next_frame()` がエラーを返した場合でも入力パケットは破棄され、以降は新しいパケットの `decode` から再開できる。
 
 ### エラー型
 
@@ -241,6 +241,8 @@ assert!(aac_lc.decoding.supported && aac_lc.encoding.supported);
 
 複数パケットを連結して 1 回の `decode` に渡すと、フレーム数が想定の倍以上になる誤動作を起こすため、呼び出し側で必ずパケット境界を保ったまま投入する。
 
+`next_frame()` がエラーを返した場合でも入力パケットは破棄され、以降は新しいパケットの `decode` から再開できる。
+
 ### プライミングサンプル
 
 AAC エンコーダーはエンコーダー内部のプライミング (先頭にゼロ詰めしたフレーム) を生成するため、`encode → decode` の往復で得られる PCM サンプル数は元の入力 PCM サンプル数より多くなる。テストでも `total_decoded.len() >= 入力フレーム数` と弱めに検証している。
@@ -288,8 +290,9 @@ AAC エンコーダーはエンコーダー内部のプライミング (先頭�
 3. 出力バッファ (`DECODE_BUF_FRAMES * OUTPUT_CHANNELS * 2 bytes`) を確保。
 4. `AudioConverterFillComplexBuffer` を呼ぶ。
 5. コールバックは初回呼び出し時のみ `encoded_buf` を 1 パケットとして提供し、`packet_provided_in_this_fill = true` をセット。同じ fill 呼び出し内の 2 回目以降は `K_NO_MORE_INPUT` を返す。
-6. 戻り値が `0` または `K_NO_MORE_INPUT` 以外ならエラー。
-7. `encoded_buf` をクリアし、出力バイト列をサンプル数で truncate して返す。
+6. デコード処理を試行した以上、入力バッファは消費済みとして `encoded_buf` をクリアする (エラー時も同様で、消費状況は不明)。
+7. 戻り値が `0` または `K_NO_MORE_INPUT` 以外ならエラー。
+8. 出力バイト列をサンプル数で truncate して返す。
 
 ### Drop / リソース管理
 

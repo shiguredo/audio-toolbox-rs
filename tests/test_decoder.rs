@@ -186,3 +186,50 @@ fn decode_then_loop_next_frame_consumes_all_output() {
         "1 パケットのデコード結果から PCM が取得できなければならない"
     );
 }
+
+/// デコードエラー後も入力バッファがクリアされ、次のパケットを受け付けられる。
+#[test]
+fn decode_error_clears_input_buffer_and_recovers() {
+    // 復帰用に正常な AAC-LC パケットを用意する。
+    // 2 パケット以上あることを確認し、復帰時に使う正常パケットを確保する。
+    let packets = encode_aac_packets(3);
+    assert!(
+        packets.len() >= 2,
+        "エンコーダーは 2 パケット以上生成しなければならない"
+    );
+
+    // 壊れたパケットとして巨大な不正バイト列を使う。
+    //
+    // 正常パケットのペイロード上書きや切り詰めでは macOS 実機で
+    // AudioConverterFillComplexBuffer がエラーを返さず Ok(None) になることを確認した。
+    // 4096 バイトの不正データは実エラー (status=-50) を確実に誘発するためこちらを使う。
+    let broken = vec![0xFFu8; 4096];
+
+    let mut decoder = decoder_aac_stereo_48k();
+    decoder
+        .decode(&broken)
+        .expect("壊れたパケットの decode 自体は成功しなければならない");
+    let err = decoder
+        .next_frame()
+        .expect_err("壊れたパケットの next_frame はエラーを返さなければならない");
+    assert!(
+        err.to_string().contains("AudioConverterFillComplexBuffer"),
+        "想定外のエラー: {err}"
+    );
+
+    // エラー後も previous packet not consumed で弾かれずに受理できる。
+    decoder
+        .decode(&packets[0])
+        .expect("エラー直後の正常パケットは受理されなければならない");
+
+    // 復帰後に PCM が取れることを確認する。
+    let mut total_frames = 0usize;
+    while let Some(frame) = decoder.next_frame().expect("復帰後の next_frame 呼び出し") {
+        // デコーダー出力はステレオ固定のためチャンネル数 2 で割ってフレーム数を求める。
+        total_frames += frame.len() / TEST_CHANNELS as usize;
+    }
+    assert!(
+        total_frames > 0,
+        "復帰後のデコード結果から PCM が取得できなければならない"
+    );
+}

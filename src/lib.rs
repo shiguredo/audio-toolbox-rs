@@ -829,6 +829,9 @@ impl Decoder {
     ///
     /// 前回の `decode` で入力したパケットが [`Decoder::next_frame()`] により消費されるまで、
     /// 再度 `decode` すると [`Error`] を返す（連結による誤デコードを防ぐ）。
+    ///
+    /// [`Decoder::next_frame()`] がエラーを返した場合でも、当該パケットが消費されたか否かに
+    /// 関わらず入力バッファはクリアされ（消費状況は不明）、以降は新しいパケットの `decode` から再開できる。
     pub fn decode(&mut self, encoded: &[u8]) -> Result<(), Error> {
         if !self.encoded_buf.is_empty() {
             return Err(Error {
@@ -852,6 +855,9 @@ impl Decoder {
     /// `Ok(None)` が返されたら、それ以上デコード結果がないことを意味する。
     ///
     /// 返される `Vec<i16>` はインターリーブ形式のステレオ PCM データ。
+    ///
+    /// エラー時には当該パケットが消費されたか否かに関わらず入力バッファがクリアされ
+    /// （消費状況は不明）、以降は新しいパケットの [`Decoder::decode()`] から再開できる。
     pub fn next_frame(&mut self) -> Result<Option<Vec<i16>>, Error> {
         self.decode_impl()
     }
@@ -891,18 +897,19 @@ impl Decoder {
         // コールバックが K_NO_MORE_INPUT を返した場合でも、
         // 既に供給された 1 パケットから生成可能な出力が output_buffer_list に残っている可能性がある。
         // そのため 0 または K_NO_MORE_INPUT 以外のステータスだけをエラーとする。
+        // デコード処理を試行した以上、入力バッファは消費済みとして扱う。
+        //
+        // API はエラー時に入力パケットが消費されたか否かを通知しない。
+        // 未クリアのままだと以降の decode が previous packet not consumed で
+        // 永久に弾かれるため、消費済みとみなしてクリアするのが本実装の方針である。
+        self.encoded_buf.clear();
+
         if status != 0 && status != K_NO_MORE_INPUT {
             return Err(Error {
                 status,
                 function: "AudioConverterFillComplexBuffer",
             });
         }
-
-        // デコード処理が完了したら入力バッファをクリアする
-        //
-        // AudioConverter は 1 回のコールバックで入力バッファの全データを消費するため、
-        // 部分的に消費されることはない。
-        self.encoded_buf.clear();
 
         let byte_size = output_buffer_list.mBuffers[0].mDataByteSize as usize;
         let pcm_max_bytes = pcm_buf.len().saturating_mul(size_of::<i16>());
