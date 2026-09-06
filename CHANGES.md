@@ -28,6 +28,9 @@
 
 ### misc
 
+- [UPDATE] Makefile から実在しない pbt / fuzz ターゲットを削除する
+  - @voluntas
+
 ## 2026.1.0
 
 **リリース日**: 2026-04-03
