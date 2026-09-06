@@ -3,7 +3,7 @@
 - Created: 2026-09-06
 - Completed: {YYYY-MM-DD}
 - Branch: feature/fix-decoder-new-null-check
-- Polished: {YYYY-MM-DD}
+- Polished: 2026-09-06
 
 ## 目的
 
