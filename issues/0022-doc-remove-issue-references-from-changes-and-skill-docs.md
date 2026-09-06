@@ -2,7 +2,7 @@
 
 - Priority: Medium
 - Created: 2026-07-21
-- Completed:
+- Completed: 2026-09-06
 - Model: Opus 4.7
 - Branch: feature/update-remove-issue-references-from-docs
 - Polished: 2026-09-05
@@ -47,3 +47,9 @@ Medium とする。動作影響はないが、shiguredo-issues 規約の必守�
   rg -n "issues/[0-9]{4,}|github\.com/[^ )]+/(pull|issues)/|#[0-9]+|0[0-9]{3,}" --hidden --glob '!issues/**' --glob '!.git/**' --glob '!Cargo.lock'
   ```
   examples/sine_to_mp4.rs のビット列コメント (00010 等)・Cargo.lock の checksum・`.github/workflows/*.yml` の commit SHA ピンは issue 番号と無関係のため目視で除外する。検出された場合は本 issue の範囲に含めて除去する。
+
+## 解決方法 (実績)
+
+- `CHANGES.md` の該当 1 行のみを削除し、エントリ本体と担当者行を残す
+- `SKILL.md` の該当文を指定文言に書き換え、0014 の追記文は残す
+- 全体 grep で残存がないことを確認する (除外対象は目視で正当)
