@@ -237,7 +237,7 @@ assert!(aac_lc.decoding.supported && aac_lc.encoding.supported);
 
 ### `Decoder::decode` の 1 パケット制約
 
-`Decoder` は「1 回の `decode` あたり 1 パケット」の前提で実装されている。同じパケットが 1 回の `AudioConverterFillComplexBuffer` 呼び出し内で複数回コールバックに渡されないよう、内部フラグ `packet_provided_in_this_fill` で制御している。これは過去にあったバグ ([0012 で修正済み](https://github.com/shiguredo/audio-toolbox-rs/pull/4)) への対策。
+`Decoder` は「1 回の `decode` あたり 1 パケット」の前提で実装されている。同じパケットが 1 回の `AudioConverterFillComplexBuffer` 呼び出し内で複数回コールバックに渡されないよう、内部フラグ `packet_provided_in_this_fill` で制御している。これは過去に、コールバックが同じパケットを複数回提供していたバグへの対策。
 
 複数パケットを連結して 1 回の `decode` に渡すと、フレーム数が想定の倍以上になる誤動作を起こすため、呼び出し側で必ずパケット境界を保ったまま投入する。
 
