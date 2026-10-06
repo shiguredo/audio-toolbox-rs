@@ -26,7 +26,7 @@ Apple の [Audio Toolbox] を利用した音声エンコーダー / デコーダ
 - crate 名: `shiguredo_audio_toolbox`
 - バージョン: 2026.1.0
 - Rust Edition: 2024
-- 最小 Rust バージョン: 1.88
+- 最小 Rust バージョン: 1.93
 - ライセンス: Apache-2.0
 - 対象 OS: macOS のみ (arm64)
 
