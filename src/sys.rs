@@ -1,10 +1,15 @@
-#![allow(non_upper_case_globals)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
-#![allow(dead_code)]
-#![allow(unsafe_op_in_unsafe_fn)]
-#![allow(unused_imports)]
-#![allow(unnecessary_transmutes)]
-#![allow(clippy::all)]
+//! Audio Toolbox の FFI バインディング
+//!
+//! bindgen が生成したコードを include するためのモジュール。
+//! 生成コードはリポジトリ管理外のため、lint の抑制には
+//! `#[expect(...)]` を使い、警告が発生しなくなったら
+//! 抑制自体を削除する必要があることに気づけるようにする。
+
+#![expect(non_upper_case_globals)]
+#![expect(non_camel_case_types)]
+#![expect(non_snake_case)]
+#![expect(dead_code)]
+#![expect(unnecessary_transmutes)]
+#![expect(clippy::all)]
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));

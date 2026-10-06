@@ -49,7 +49,7 @@ macOS 専用で、ビルド時に Xcode の SDK ヘッダーを参照して bind
 ## 動作要件
 
 - macOS (arm64)
-- Rust 1.88 以降
+- Rust 1.93 以降
 - Xcode Command Line Tools (ビルド時に Audio Toolbox のヘッダーファイルが必要)
 
 ## ビルド

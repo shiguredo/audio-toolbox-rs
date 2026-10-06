@@ -132,7 +132,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     file.write_all(initial_bytes)?;
     let mut data_offset = initial_bytes.len() as u64;
 
-    let timescale = NonZeroU32::new(SAMPLE_RATE).unwrap();
+    // SAMPLE_RATE は 0 以外の定数なので NonZeroU32::new は必ず成功する
+    let timescale = NonZeroU32::new(SAMPLE_RATE).expect("SAMPLE_RATE must be non-zero");
     let mut first_frame = true;
     let mut sample_offset: usize = 0;
     let mut encoded_samples: usize = 0;
